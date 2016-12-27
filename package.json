@@ -1,0 +1,37 @@
+{
+  "name": "SMB1",
+  "version": "1.0.0",
+  "description": "SMB1 using Typescript and Phaser",
+  "scripts": {
+    "start": "gulp",
+    "typings": "typings",
+    "postinstall": "typings install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Salwan/smb1-phaser.git"
+  },
+  "author": "ZenithSal",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Salwan/smb1-phaser/issues"
+  },
+  "homepage": "https://github.com/Salwan/smb1-phaser#readme",
+  "dependencies": {
+    "systemjs": "0.19.26",
+    "es6-shim": "^0.35.0",
+    "reflect-metadata": "0.1.2"
+  },
+  "devDependencies": {
+    "browser-sync": "^2.12.5",
+    "@types/node": "^6.0.54",
+    "gulp": "^3.9.1",
+    "gulp-sourcemaps": "^2.0.0-alpha",
+    "gulp-tslint": "^5.0.0",
+    "gulp-typescript": "^2.13.0",
+    "typescript": "^2.1.4",
+    "superstatic": "^4.0.2",
+    "tslint": "^3.10.2",
+    "typings": "^0.7.12"
+  }
+}
