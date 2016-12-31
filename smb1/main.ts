@@ -32,7 +32,7 @@ class SMBGame {
     public preload() {
         phaser.stage.backgroundColor = 0x5c94fc;
         phaser.load.image('logo', './smb1/assets/title.fw.png');
-        phaser.load.bitmapFont('emulogic', './smb1/assets/fonts/emulogic_0.png', './smb1/assets/fonts/emulogic.fnt');
+        phaser.load.bitmapFont('smb', './smb1/assets/fonts/emulogic_0.png', './smb1/assets/fonts/emulogic.fnt');
         phaser.load.audio('coin', './smb1/assets/sfx/smb_coin.wav');
         phaser.load.audio('bump', './smb1/assets/sfx/smb_bump.wav');
         phaser.load.atlas('smb1atlas', './smb1/assets/sprites/smb1atlas.png', './smb1/assets/sprites/smb1atlas.json');
@@ -74,11 +74,15 @@ class SMBGame {
                 this.currentScene.destroy();
             }
             phaser.world.removeAll();
+            phaser.stage.backgroundColor = 0x000000;
             phaser.world.visible = false; // Blank before create
-            scene.create();
-            this.currentScene = scene;
+            this.currentScene = null;
             // Fake blank screen for 0.2 second (polish element)
-            let t = phaser.time.events.add(0.2 * 1000, () => { phaser.world.visible = true; });
+            let t = phaser.time.events.add(0.2 * 1000, () => { 
+                scene.create(); 
+                phaser.world.visible = true;
+                this.currentScene = scene;
+            });
         }
     }
     
@@ -87,6 +91,11 @@ class SMBGame {
         this.gameSession = new GameSession(this.player);
         let info_screen:InfoScreen = new InfoScreen(this, this.gameSession);
         this.changeScene(info_screen);
+    }
+    
+    public startLevel():void {
+        let level_scene:LevelScene = new LevelScene(this, this.gameSession);
+        this.changeScene(level_scene);
     }
 };
 
@@ -141,11 +150,11 @@ class StartScreen extends Scene {
         logo.anchor.setTo(0.5, 1.0);
         logo.scale.setTo(2.0, 2.0);
         
-        let copyright_txt = phaser.add.bitmapText(104 * RESMULX, 119 * RESMULY, 'emulogic', '\xA91985 NINTENDO', 12 * RESMULX);
+        let copyright_txt = phaser.add.bitmapText(104 * RESMULX, 119 * RESMULY, 'smb', '\xA91985 NINTENDO', 12 * RESMULX);
         copyright_txt.tint = 0xfcbcb0;
-        phaser.add.bitmapText(24 * RESMULX, 142 * RESMULY, 'emulogic', 'PRESS-BIND BUTTON 1 = JUMP', 12 * RESMULX);
+        phaser.add.bitmapText(24 * RESMULX, 142 * RESMULY, 'smb', 'PRESS-BIND BUTTON 1 = JUMP', 12 * RESMULX);
         
-        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'emulogic', 'PRESS-BIND BUTTON 2 TO START', 12 * RESMULX);
+        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 TO START', 12 * RESMULX);
         this.btn2Text.visible = false;
         
         this.startSound = phaser.add.audio("coin");
@@ -192,7 +201,7 @@ class StartScreen extends Scene {
     
     public startGame():void {
         phaser.input.keyboard.onDownCallback = this.originalKBOwner;
-        this.startSound.play();
+        this.startSound.play(); 
         this.smbGame.startGame();
     }
 };
@@ -209,14 +218,15 @@ class InfoScreen extends Scene {
     public create():void {
         phaser.stage.backgroundColor = 0x000000;
         
+        // Name and Score
         let score_txt = this.gameSession.player.score.toString();
         while(score_txt.length < 6) {
             score_txt = '0' + score_txt;
         }
-        phaser.add.bitmapText(24 * RESMULX, 14 * RESMULY, 'emulogic', 'MARIO', 12 * RESMULX);
-        phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'emulogic', score_txt, 12 * RESMULX);
+        phaser.add.bitmapText(24 * RESMULX, 14 * RESMULY, 'smb', 'MARIO', 12 * RESMULX);
+        phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'smb', score_txt, 12 * RESMULX);
         
-        // small coin
+        // Coins
         let coin:Phaser.Sprite = phaser.add.sprite(89 * RESMULX, 24 * RESMULY, 'smb1atlas');
         coin.scale.set(2.0);
         let fnames:Array<string> = Phaser.Animation.generateFrameNames('scoin0_', 0, 2, '.png');
@@ -224,22 +234,51 @@ class InfoScreen extends Scene {
         fnames.push('scoin0_0.png');
         coin.animations.add('bling', fnames, 5, true);
         coin.animations.play('bling');
-        
-        let lives_txt = this.gameSession.player.lives.toString();
-        if(lives_txt.length < 2) {
-            lives_txt = '0' + lives_txt;
+        let coins_txt = this.gameSession.player.coins.toString();
+        if(coins_txt.length < 2) {
+            coins_txt = '0' + coins_txt;
         }
-        lives_txt = 'x' + lives_txt;
-        phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'emulogic', lives_txt, 12 * RESMULX);
+        coins_txt = 'x' + coins_txt;
+        phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'smb', coins_txt, 12 * RESMULX);
+        
+        // World
+        let stage_txt:string = this.gameSession.world.toString() + '-' + this.gameSession.stage.toString();
+        phaser.add.bitmapText(144 * RESMULX, 14 * RESMULY, 'smb', 'WORLD', 12 * RESMULX);
+        phaser.add.bitmapText(152 * RESMULX, 22 * RESMULY, 'smb', stage_txt, 12 * RESMULX);
+        phaser.add.bitmapText(87 * RESMULX, 78 * RESMULY, 'smb', 'WORLD ' + stage_txt, 12 * RESMULX);
+        
+        // Time
+        phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX);
+        
+        // Mario x lives
+        let mario:Phaser.Sprite = phaser.add.sprite(97 * RESMULX, 105 * RESMULY, 'smb1atlas');
+        mario.scale.set(2.0);
+        mario.frameName = 'smario0_0.png';
+        phaser.add.bitmapText(120 * RESMULX, 110 * RESMULY, 
+            'smb', 'x  ' + this.gameSession.player.lives.toString(), 12 * RESMULX);
+            
+        // Timer for starting level
+        phaser.time.events.add(3.0 * 1000, () => { this.smbGame.startLevel(); });
     }
 };
 
-/*
 ///////////////////////////// LevelScene
 class LevelScene extends Scene {
-
+    gameSession: GameSession;
+    
+    constructor(smb_game:SMBGame, game_session:GameSession) {
+        super(smb_game);
+        this.gameSession = game_session;
+    }
+    
+    public create():void {
+        phaser.stage.backgroundColor = 0x5c94fc;
+    }
+    
+    public update():void {
+        
+    }
 };
-*/
 
 document.body.innerHTML = '';
  
