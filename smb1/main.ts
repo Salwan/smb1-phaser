@@ -37,10 +37,6 @@ class SMBGame {
             this.currentScene = scene;
         }
     }
-    
-    public testFunc():void {
-        console.log("Test Function Success");
-    }
 
     public create():void {
         let start_screen:StartScreen = new StartScreen();
