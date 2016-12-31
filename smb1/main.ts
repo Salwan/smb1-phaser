@@ -13,8 +13,12 @@ class SMBGame {
     currentScene: Scene;
 
     public constructor() {
-        phaser = new Phaser.Game(WIDTH, HEIGHT, Phaser.AUTO, 'content', { preload: this.preload, create: this.create,
-            update: this.update, render: this.render }, false, false);
+        phaser = new Phaser.Game(WIDTH, HEIGHT, Phaser.AUTO, 'content', { 
+            preload: () => { this.preload(); },
+            create: () => { this.create(); },
+            update: () => { this.update(); }, 
+            render: () => { this.render(); } 
+        }, false, false);
     }
 
     public preload() {
@@ -33,9 +37,12 @@ class SMBGame {
             this.currentScene = scene;
         }
     }
+    
+    public testFunc():void {
+        console.log("Test Function Success");
+    }
 
     public create():void {
-        console.log('typeof this: ' + (typeof this));
         let start_screen:StartScreen = new StartScreen();
         this.changeScene(start_screen);
     }
