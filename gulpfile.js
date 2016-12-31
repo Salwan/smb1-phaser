@@ -35,6 +35,20 @@ gulp.task('compile-ts', function(){
 gulp.task('serve', ['ts-lint', 'compile-ts'], function(){
 	//watch for changes... if a change: lint, recompile
 	gulp.watch([config.allTs], ['ts-lint', 'compile-ts']);
+		
+	browserSync({
+		port: process.env.PORT,
+		file: ['index.html', '**/*.js'],
+		injectChanges: true,
+		logFileChanges: false,
+		logLevel: 'silent',
+		notify: true,
+		reloadDelay: 0,
+		server: {
+			baseDir: './app',
+			middleware: superstatic({debug: false})
+		}
+	});
 });
 
 gulp.task('default', ['serve']);
