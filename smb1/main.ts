@@ -7,6 +7,10 @@ const HEIGHT = 480.0;
 const RESMULX = 2.0;
 const RESMULY = 2.0;
 
+const COLOR_SKY = 0x5c94fc;
+const COLOR_BLACK = 0x000000;
+const COLOR_WHITE = 0xffffff;
+
 let phaser:     Phaser.Game = null;
 let gamepad1:   Phaser.SinglePad = null; // First GamePad
 
@@ -30,7 +34,7 @@ class SMBGame {
     }
 
     public preload() {
-        phaser.stage.backgroundColor = 0x5c94fc;
+        phaser.stage.backgroundColor = COLOR_SKY;
         phaser.load.image('logo', './smb1/assets/title.fw.png');
         phaser.load.bitmapFont('smb', './smb1/assets/fonts/emulogic_0.png', './smb1/assets/fonts/emulogic.fnt');
         phaser.load.audio('coin', './smb1/assets/sfx/smb_coin.wav');
@@ -74,9 +78,13 @@ class SMBGame {
                 this.currentScene.destroy();
             }
             phaser.world.removeAll();
-            phaser.stage.backgroundColor = 0x000000;
+            phaser.stage.backgroundColor = COLOR_BLACK;
             phaser.world.visible = false; // Blank before create
             this.currentScene = null;
+            // What happens if another change happens before the one already scheduled? (unlikely but a 100% will happen at least once)
+            // IF a cross-scene timer was ever needed, this might cause an issue. Remember.
+            // Better to replace with a crude update timer?
+            phaser.time.events.removeAll();
             // Fake blank screen for 0.2 second (polish element)
             let t = phaser.time.events.add(0.2 * 1000, () => { 
                 scene.create(); 
@@ -154,7 +162,7 @@ class StartScreen extends Scene {
         copyright_txt.tint = 0xfcbcb0;
         phaser.add.bitmapText(24 * RESMULX, 142 * RESMULY, 'smb', 'PRESS-BIND BUTTON 1 = JUMP', 12 * RESMULX);
         
-        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 TO START', 12 * RESMULX);
+        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 = ACTION', 12 * RESMULX);
         this.btn2Text.visible = false;
         
         this.startSound = phaser.add.audio("coin");
@@ -272,7 +280,39 @@ class LevelScene extends Scene {
     }
     
     public create():void {
-        phaser.stage.backgroundColor = 0x5c94fc;
+        phaser.stage.backgroundColor = COLOR_SKY;
+        
+        // HUD / MARIO
+        let score_txt = this.gameSession.player.score.toString();
+        while(score_txt.length < 6) {
+            score_txt = '0' + score_txt;
+        }
+        phaser.add.bitmapText(24 * RESMULX, 14 * RESMULY, 'smb', 'MARIO', 12 * RESMULX);
+        phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'smb', score_txt, 12 * RESMULX);
+        
+        // HUD / COINS
+        let coin:Phaser.Sprite = phaser.add.sprite(89 * RESMULX, 24 * RESMULY, 'smb1atlas');
+        coin.scale.set(RESMULX, RESMULY);
+        let fnames:Array<string> = Phaser.Animation.generateFrameNames('scoin0_', 0, 2, '.png');
+        fnames.push('scoin0_1.png');
+        fnames.push('scoin0_0.png');
+        coin.animations.add('bling', fnames, 5, true);
+        coin.animations.play('bling');
+        let coins_txt = this.gameSession.player.coins.toString();
+        if(coins_txt.length < 2) {
+            coins_txt = '0' + coins_txt;
+        }
+        coins_txt = 'x' + coins_txt;
+        phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'smb', coins_txt, 12 * RESMULX);
+        
+        // HUD / WORLD
+        let stage_txt:string = this.gameSession.world.toString() + '-' + this.gameSession.stage.toString();
+        phaser.add.bitmapText(144 * RESMULX, 14 * RESMULY, 'smb', 'WORLD', 12 * RESMULX);
+        phaser.add.bitmapText(152 * RESMULX, 22 * RESMULY, 'smb', stage_txt, 12 * RESMULX);
+        
+        // HUD / TIME
+        phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX);
+        
     }
     
     public update():void {
