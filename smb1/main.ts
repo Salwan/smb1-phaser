@@ -40,6 +40,9 @@ class SMBGame {
         phaser.load.audio('coin', './smb1/assets/sfx/smb_coin.wav');
         phaser.load.audio('bump', './smb1/assets/sfx/smb_bump.wav');
         phaser.load.atlas('smb1atlas', './smb1/assets/sprites/smb1atlas.png', './smb1/assets/sprites/smb1atlas.json');
+        
+        phaser.load.tilemap('level11', './smb1/assets/levels/world11.json', null, Phaser.Tilemap.TILED_JSON);
+        phaser.load.image('level1_ss', './smb1/assets/levels/world11.png');
     }
 
     public create():void {
@@ -273,6 +276,10 @@ class InfoScreen extends Scene {
 ///////////////////////////// LevelScene
 class LevelScene extends Scene {
     gameSession: GameSession;
+    tilemap: Phaser.Tilemap;
+    objectsLayer: Phaser.TilemapLayer;
+    blocksLayer: Phaser.TilemapLayer;
+    BGLayer: Phaser.TilemapLayer;
     
     constructor(smb_game:SMBGame, game_session:GameSession) {
         super(smb_game);
@@ -313,6 +320,15 @@ class LevelScene extends Scene {
         // HUD / TIME
         phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX);
         
+        // LOAD LEVEL
+        this.tilemap = phaser.add.tilemap('level11');
+        this.tilemap.addTilesetImage('main', 'level1_ss');
+        this.BGLayer = this.tilemap.createLayer('BG');
+        this.BGLayer.scale.set(2.0);
+        this.blocksLayer = this.tilemap.createLayer('BLOCKS');
+        this.blocksLayer.scale.set(2.0);
+        //this.objectsLayer = this.tilemap.createLayer('OBJECTS');
+        //this.objectsLayer.scale.set(2.0);
     }
     
     public update():void {
