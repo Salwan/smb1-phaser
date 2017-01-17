@@ -387,9 +387,9 @@ class LevelScene extends Scene {
         this.tilemap = phaser.add.tilemap('level11');
         this.tilemap.addTilesetImage('main', 'level1_ss');
         this.BGLayer = this.tilemap.createLayer('BG');
-        this.BGLayer.scale.set(2.0);
+        this.BGLayer.setScale(2.0);
         this.blocksLayer = this.tilemap.createLayer('BLOCKS');
-        this.blocksLayer.scale.set(2.0);
+        this.blocksLayer.setScale(2.0);
         this.blocksLayer.resizeWorld();
         
         // INIT PHYSICS
