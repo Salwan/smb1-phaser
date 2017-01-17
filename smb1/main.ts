@@ -11,6 +11,9 @@ const COLOR_SKY = 0x5c94fc;
 const COLOR_BLACK = 0x000000;
 const COLOR_WHITE = 0xffffff;
 
+
+let debugMode = true;
+
 let phaser:     Phaser.Game = null;
 let gamepad1:   Phaser.SinglePad = null; // First GamePad
 
@@ -274,12 +277,69 @@ class InfoScreen extends Scene {
 };
 
 ///////////////////////////// LevelScene
+class Mario {
+    startObject: any;
+    sprite: Phaser.Sprite;
+    speed: number;
+    
+    constructor(start_object) {
+        this.startObject = start_object;
+        // Sprite and Animations
+        this.sprite = phaser.add.sprite(this.startObject.x * RESMULX + 16, 16 /** this.startObject.y * RESMULY + 32*/, 'smb1atlas');
+        this.sprite.anchor.set(0.5, 1.0);
+        this.sprite.scale.set(2.0);
+        this.sprite.frameName = 'smario0_0.png';
+        // - idle
+        this.sprite.animations.add('idle', ['smario0_0.png'], 0);
+        // - running
+        let frs:Array<string> = Phaser.Animation.generateFrameNames('smario0_', 3, 5, '.png');
+        frs.push('smario0_4.png');
+        this.sprite.animations.add('run', frs, 10, true);
+        // - braking
+        this.sprite.animations.add('brake', ['smario0_2.png'], 0);
+        // - initial
+        this.sprite.animations.play('run');
+        // Motion
+        this.speed = 16.0;
+        // Physics
+        phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
+        this.sprite.body.collideWorldBounds = true;
+        this.sprite.body.setSize(16, 16, 0, 0);
+    }
+    
+    public goRight():void {
+        this.sprite.animations.play('run');
+        this.sprite.scale.x = 2.0;
+    }
+    
+    public goLeft():void {
+        this.sprite.animations.play('run');
+        this.sprite.scale.x = -2.0;
+    }
+    
+    public noLeftRight():void {
+        this.sprite.animations.play('idle');
+    }
+    
+    public debugRender():void {
+        phaser.debug.body(this.sprite);
+    }
+};
+
 class LevelScene extends Scene {
     gameSession: GameSession;
     tilemap: Phaser.Tilemap;
     objectsLayer: Phaser.TilemapLayer;
     blocksLayer: Phaser.TilemapLayer;
     BGLayer: Phaser.TilemapLayer;
+    mario: Mario;
+    
+    kbUp: Phaser.Key;
+    kbDown: Phaser.Key;
+    kbLeft: Phaser.Key;
+    kbRight: Phaser.Key;
+    kb1: Phaser.Key;
+    kb2: Phaser.Key;
     
     constructor(smb_game:SMBGame, game_session:GameSession) {
         super(smb_game);
@@ -320,6 +380,10 @@ class LevelScene extends Scene {
         // HUD / TIME
         phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX);
         
+        // INIT PHYSICS
+        phaser.physics.startSystem(Phaser.Physics.ARCADE);
+        phaser.physics.arcade.gravity.y = 100.0;
+        
         // LOAD LEVEL
         this.tilemap = phaser.add.tilemap('level11');
         this.tilemap.addTilesetImage('main', 'level1_ss');
@@ -327,12 +391,64 @@ class LevelScene extends Scene {
         this.BGLayer.scale.set(2.0);
         this.blocksLayer = this.tilemap.createLayer('BLOCKS');
         this.blocksLayer.scale.set(2.0);
-        //this.objectsLayer = this.tilemap.createLayer('OBJECTS');
-        //this.objectsLayer.scale.set(2.0);
+        this.blocksLayer.resizeWorld();
+        
+        // SPAWN TEST
+        //let mario:Phaser.Sprite = phaser.add.sprite(97 * RESMULX, 105 * RESMULY, 'smb1atlas');
+        //mario.scale.set(2.0);
+        //mario.frameName = 'smario0_0.png';
+        
+        // Objects: SPAWNER
+        console.log("Tilemap objects count: " + this.tilemap.objects['OBJECTS'].length);
+        let les_objects = this.tilemap.objects['OBJECTS'];
+        let player_spawn = null;
+        for(let ob of les_objects) {
+            if(ob.name === "mario") {
+                player_spawn = ob;
+                break;
+            }
+        }
+        if(!player_spawn) {
+            console.log("ERROR: No player spawn found in tilemap objects!");
+            throw new Error("No player spawn found in tilemap objects!");
+        }
+        player_spawn.tx = Math.floor(player_spawn.x / 16.0);
+        player_spawn.ty = Math.floor(player_spawn.y / 16.0);
+        
+        this.mario = new Mario(player_spawn);
+        
+        // Map Collision for Blocks Layer
+        //this.tilemap.setCollisionBetween(1, 1000, true, this.blocksLayer);
+        this.tilemap.setCollision(16, true, this.blocksLayer);
+        
+        // CAMERA
+        phaser.camera.follow(this.mario.sprite);
+        
+        // INPUT
+        this.kbUp = phaser.input.keyboard.addKey(Phaser.Keyboard.UP);
+        this.kbDown = phaser.input.keyboard.addKey(Phaser.Keyboard.DOWN);
+        this.kbLeft = phaser.input.keyboard.addKey(Phaser.Keyboard.LEFT);
+        this.kbRight = phaser.input.keyboard.addKey(Phaser.Keyboard.RIGHT);
+        this.kb1 = phaser.input.keyboard.addKey(this.smbGame.keyboardBtn1);
+        this.kb2 = phaser.input.keyboard.addKey(this.smbGame.keyboardBtn2);
     }
     
     public update():void {
+        phaser.physics.arcade.collide(this.mario.sprite, this.blocksLayer);
         
+        if(this.kbRight.isDown) {
+            this.mario.goRight();
+        } else if (this.kbLeft.isDown) {
+            this.mario.goLeft();
+        } else {
+            this.mario.noLeftRight();
+        }
+    }
+    
+    public render():void {
+        if(debugMode) {
+            this.mario.debugRender();
+        }
     }
 };
 
