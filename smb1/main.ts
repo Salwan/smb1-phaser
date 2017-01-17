@@ -302,9 +302,12 @@ class Mario {
         // Motion
         this.speed = 16.0;
         // Physics
-        phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
+        //phaser.physics.enable(this.sprite, Phaser.Physics.P2JS);
+        phaser.physics.p2.enable(this.sprite);
+        this.sprite.body.fixedRotation = true;
         this.sprite.body.collideWorldBounds = true;
-        this.sprite.body.setSize(16, 16, 0, 0);
+        //this.sprite.body.setSize(16, 16, 0, 0);
+        this.sprite.body.debug = true;
     }
     
     public goRight():void {
@@ -380,10 +383,6 @@ class LevelScene extends Scene {
         // HUD / TIME
         phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX);
         
-        // INIT PHYSICS
-        phaser.physics.startSystem(Phaser.Physics.ARCADE);
-        phaser.physics.arcade.gravity.y = 100.0;
-        
         // LOAD LEVEL
         this.tilemap = phaser.add.tilemap('level11');
         this.tilemap.addTilesetImage('main', 'level1_ss');
@@ -393,10 +392,14 @@ class LevelScene extends Scene {
         this.blocksLayer.scale.set(2.0);
         this.blocksLayer.resizeWorld();
         
-        // SPAWN TEST
-        //let mario:Phaser.Sprite = phaser.add.sprite(97 * RESMULX, 105 * RESMULY, 'smb1atlas');
-        //mario.scale.set(2.0);
-        //mario.frameName = 'smario0_0.png';
+        // INIT PHYSICS
+        phaser.physics.startSystem(Phaser.Physics.P2JS);
+        phaser.physics.p2.gravity.y = 100;
+        // - Collision for Blocks Layer
+        this.tilemap.setCollisionBetween(1, 1000, true, this.blocksLayer);
+        //this.tilemap.setCollisionByExclusion([0], true, this.blocksLayer);
+        //this.tilemap.setCollision(16, true, this.blocksLayer);
+        phaser.physics.p2.convertTilemap(this.tilemap, this.blocksLayer);
         
         // Objects: SPAWNER
         console.log("Tilemap objects count: " + this.tilemap.objects['OBJECTS'].length);
@@ -417,10 +420,6 @@ class LevelScene extends Scene {
         
         this.mario = new Mario(player_spawn);
         
-        // Map Collision for Blocks Layer
-        //this.tilemap.setCollisionBetween(1, 1000, true, this.blocksLayer);
-        this.tilemap.setCollision(16, true, this.blocksLayer);
-        
         // CAMERA
         phaser.camera.follow(this.mario.sprite);
         
@@ -434,7 +433,7 @@ class LevelScene extends Scene {
     }
     
     public update():void {
-        phaser.physics.arcade.collide(this.mario.sprite, this.blocksLayer);
+        //phaser.physics.p2.collide(this.mario.sprite, this.blocksLayer);
         
         if(this.kbRight.isDown) {
             this.mario.goRight();
