@@ -340,14 +340,12 @@ class LevelScene extends Scene {
         this.blocksLayer.setScale(2.0);
         
         // INIT PHYSICS
-        phaser.physics.startSystem(Phaser.Physics.ARCADE);
-        phaser.physics.arcade.gravity.y = 100.0;
-        phaser.physics.arcade.enable(this.blocksLayer);
+        phaser.physics.startSystem(Phaser.Physics.P2JS);
+        phaser.physics.p2.gravity.y = 100.0;
         // - collision for Blocks Layer
         this.tilemap.setCollisionBetween(0, 10000, true, this.blocksLayer);
-        //this.tilemap.setCollision(16, true, this.blocksLayer);
-        //this.tilemap.setCollisionByExclusion([0], true, this.blocksLayer);
         this.blocksLayer.resizeWorld();
+        phaser.physics.p2.convertTilemap(this.tilemap, this.blocksLayer);
         this.blocksLayer.debug = true;
         
         // Objects: SPAWNER
@@ -382,8 +380,6 @@ class LevelScene extends Scene {
     }
     
     public update():void {
-        phaser.physics.arcade.collide(this.mario.sprite, this.blocksLayer);
-        
         if(this.kbRight.isDown) {
             this.mario.goRight();
         } else if (this.kbLeft.isDown) {
@@ -426,9 +422,10 @@ class Mario {
         // Motion
         this.speed = 16.0;
         // Physics
-        phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
+        phaser.physics.p2.enable(this.sprite);
+        this.sprite.body.fixedRotation = true;
         this.sprite.body.collideWorldBounds = true;
-        this.sprite.body.setSize(16, 16, 0, 0);
+        this.sprite.body.debug = true;
     }
     
     public goRight():void {
