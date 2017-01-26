@@ -12,7 +12,7 @@ const COLOR_BLACK = 0x000000;
 const COLOR_WHITE = 0xffffff;
 
 
-let debugMode = true;
+const debugMode = false;
 
 let phaser:     Phaser.Game = null;
 let gamepad1:   Phaser.SinglePad = null; // First GamePad
@@ -341,14 +341,16 @@ class LevelScene extends Scene {
         
         // INIT PHYSICS
         phaser.physics.startSystem(Phaser.Physics.ARCADE);
-        phaser.physics.arcade.gravity.y = 100.0;
+        phaser.physics.arcade.gravity.y = 350.0;
         phaser.physics.arcade.enable(this.blocksLayer);
         // - collision for Blocks Layer
         this.tilemap.setCollisionBetween(0, 10000, true, this.blocksLayer);
         //this.tilemap.setCollision(16, true, this.blocksLayer);
         //this.tilemap.setCollisionByExclusion([0], true, this.blocksLayer);
         this.blocksLayer.resizeWorld();
-        this.blocksLayer.debug = true;
+        if(debugMode) {
+            this.blocksLayer.debug = true;
+        }
         
         // Objects: SPAWNER
         console.log("Tilemap objects count: " + this.tilemap.objects['OBJECTS'].length);
@@ -401,6 +403,14 @@ class LevelScene extends Scene {
 };
 
 //----------------- MARIO
+const MARIO_SPEED_1 = 16 * 6;
+const MARIO_SPEED_2 = 16 * 8;
+const MARIO_SPEED_3 = 16 * 16;
+
+const MARIO_FPS_1 = 10;
+const MARIO_FPS_2 = 15;
+const MARIO_FPS_3 = 30;
+
 class Mario {
     startObject: any;
     sprite: Phaser.Sprite;
@@ -409,7 +419,7 @@ class Mario {
     constructor(start_object) {
         this.startObject = start_object;
         // Sprite and Animations
-        this.sprite = phaser.add.sprite(this.startObject.x * RESMULX + 16, 16 /** this.startObject.y * RESMULY + 32*/, 'smb1atlas');
+        this.sprite = phaser.add.sprite(this.startObject.x * RESMULX + 16, this.startObject.y * RESMULY + 32, 'smb1atlas');
         this.sprite.anchor.set(0.5, 1.0);
         this.sprite.scale.set(2.0);
         this.sprite.frameName = 'smario0_0.png';
@@ -432,17 +442,24 @@ class Mario {
     }
     
     public goRight():void {
-        this.sprite.animations.play('run');
+        if(this.sprite.animations.name !== 'run') {
+            this.sprite.animations.play('run', MARIO_FPS_1);
+        }
         this.sprite.scale.x = 2.0;
+        this.sprite.body.velocity.x = MARIO_SPEED_1;
     }
     
     public goLeft():void {
-        this.sprite.animations.play('run');
+        if(this.sprite.animations.name !== 'run') {
+            this.sprite.animations.play('run', MARIO_FPS_1); 
+        }
         this.sprite.scale.x = -2.0;
+        this.sprite.body.velocity.x = -MARIO_SPEED_1;
     }
     
     public noLeftRight():void {
         this.sprite.animations.play('idle');
+        this.sprite.body.velocity.x = 0;
     }
     
     public debugRender():void {
