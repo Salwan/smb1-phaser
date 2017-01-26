@@ -405,7 +405,7 @@ class LevelScene extends Scene {
 //----------------- MARIO
 const MARIO_SPEED_1 = 16 * 6;
 const MARIO_SPEED_2 = 16 * 10;
-const MARIO_SPEED_3 = 16 * 16;
+const MARIO_SPEED_3 = 16 * 18;
 
 const MARIO_FPS_1 = 10;
 const MARIO_FPS_2 = 15;
