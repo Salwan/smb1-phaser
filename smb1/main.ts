@@ -284,6 +284,9 @@ class LevelScene extends Scene {
     blocksLayer: Phaser.TilemapLayer;
     BGLayer: Phaser.TilemapLayer;
     mario: Mario;
+    worldP2Mtrl: Phaser.Physics.P2.Material;
+    spriteP2Mtrl: Phaser.Physics.P2.Material;
+    contactP2Mtrl: Phaser.Physics.P2.ContactMaterial;
     
     kbUp: Phaser.Key;
     kbDown: Phaser.Key;
@@ -341,7 +344,31 @@ class LevelScene extends Scene {
         
         // INIT PHYSICS
         phaser.physics.startSystem(Phaser.Physics.P2JS);
-        phaser.physics.p2.gravity.y = 100.0;
+        phaser.physics.p2.gravity.y = 300.0;
+        phaser.physics.p2.restitution = 2.0;
+        this.worldP2Mtrl = phaser.physics.p2.createMaterial("worldMtrl");
+        this.spriteP2Mtrl = phaser.physics.p2.createMaterial("spriteMtrl");
+        this.contactP2Mtrl = phaser.physics.p2.createContactMaterial(this.spriteP2Mtrl, this.worldP2Mtrl);
+        
+        phaser.physics.p2.world.defaultContactMaterial.friction = 0.3;
+        //phaser.physics.p2.world.defaultContactMaterial.restitution = -1.0;
+        phaser.physics.p2.world.setGlobalStiffness(1e5);
+        //phaser.physics.p2.world.defaultContactMaterial.restitution = 0.0;
+        //phaser.physics.p2.world.defaultContactMaterial.stiffness = 1e7;
+        //phaser.physics.p2.world.defaultContactMaterial.relaxation = 3;
+        //phaser.physics.p2.world.defaultContactMaterial.frictionStiffness = 1e7;
+        //phaser.physics.p2.world.defaultContactMaterial.frictionRelaxation = 3;
+        //phaser.physics.p2.world.defaultContactMaterial.surfaceVelocity = 0;
+        
+        /*phaser.physics.p2.setWorldMaterial(this.worldMaterial, true, true, true);
+        this.contactP2Mtrl.friction = 0.3;
+        this.contactP2Mtrl.restitution = 0.0;
+        this.contactP2Mtrl.stiffness = 1e7;
+        this.contactP2Mtrl.relaxation = 3;
+        this.contactP2Mtrl.frictionStiffness = 1e7;
+        this.contactP2Mtrl.frictionRelaxation = 3;
+        this.contactP2Mtrl.surfaceVelocity = 0;*/
+        
         // - collision for Blocks Layer
         this.tilemap.setCollisionBetween(0, 10000, true, this.blocksLayer);
         this.blocksLayer.resizeWorld();
@@ -364,7 +391,7 @@ class LevelScene extends Scene {
         }
         player_spawn.tx = Math.floor(player_spawn.x / 16.0);
         player_spawn.ty = Math.floor(player_spawn.y / 16.0);
-        
+        player_spawn.material = this.spriteP2Mtrl;
         this.mario = new Mario(player_spawn);
         
         // CAMERA
@@ -424,8 +451,10 @@ class Mario {
         // Physics
         phaser.physics.p2.enable(this.sprite);
         this.sprite.body.fixedRotation = true;
+        this.sprite.body.damping = 0.5;
         this.sprite.body.collideWorldBounds = true;
         this.sprite.body.debug = true;
+        //this.sprite.body.setMaterial(this.startObject.material);
     }
     
     public goRight():void {
