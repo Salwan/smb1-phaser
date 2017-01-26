@@ -404,7 +404,7 @@ class LevelScene extends Scene {
 
 //----------------- MARIO
 const MARIO_SPEED_1 = 16 * 6;
-const MARIO_SPEED_2 = 16 * 8;
+const MARIO_SPEED_2 = 16 * 10;
 const MARIO_SPEED_3 = 16 * 16;
 
 const MARIO_FPS_1 = 10;
@@ -415,6 +415,7 @@ class Mario {
     startObject: any;
     sprite: Phaser.Sprite;
     speed: number;
+    contDistance: number;   // How much continuous distance of running (holding directional)
     
     constructor(start_object) {
         this.startObject = start_object;
@@ -435,10 +436,22 @@ class Mario {
         this.sprite.animations.play('run');
         // Motion
         this.speed = 16.0;
+        this.contDistance = 0;
         // Physics
         phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
         this.sprite.body.collideWorldBounds = true;
         this.sprite.body.setSize(16, 16, 0, 0);
+    }
+    
+    public calcSpeed():Array {
+        let out = [];
+        let spd = MARIO_SPEED_1;
+        let spda = MARIO_FPS_1;
+        if(this.contDistance > 32) {
+            spd = MARIO_SPEED_2;
+            spda = MARIO_FPS_2;
+        }
+        return [spd, spda];
     }
     
     public goRight():void {
@@ -446,7 +459,10 @@ class Mario {
             this.sprite.animations.play('run', MARIO_FPS_1);
         }
         this.sprite.scale.x = 2.0;
-        this.sprite.body.velocity.x = MARIO_SPEED_1;
+        let spd = this.calcSpeed();
+        this.sprite.body.velocity.x = spd[0];
+        this.sprite.animations.currentAnim.speed = spd[1];
+        this.contDistance += Math.abs(this.sprite.body.velocity.x) * phaser.time.physicsElapsed;
     }
     
     public goLeft():void {
@@ -454,12 +470,16 @@ class Mario {
             this.sprite.animations.play('run', MARIO_FPS_1); 
         }
         this.sprite.scale.x = -2.0;
-        this.sprite.body.velocity.x = -MARIO_SPEED_1;
+        let spd = this.calcSpeed();
+        this.sprite.body.velocity.x = -spd[0];
+        this.sprite.animations.currentAnim.speed = spd[1];
+        this.contDistance += Math.abs(this.sprite.body.velocity.x) * phaser.time.physicsElapsed;
     }
     
     public noLeftRight():void {
         this.sprite.animations.play('idle');
         this.sprite.body.velocity.x = 0;
+        this.contDistance = 0.0;
     }
     
     public debugRender():void {
