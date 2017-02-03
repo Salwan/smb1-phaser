@@ -404,13 +404,12 @@ class LevelScene extends Scene {
 };
 
 //----------------- MARIO
-const MARIO_SPEED_1 = 16 * 6;
-const MARIO_SPEED_2 = 16 * 10;
-const MARIO_SPEED_3 = 16 * 18;
-
-const MARIO_FPS_1 = 10;
-const MARIO_FPS_2 = 15;
-const MARIO_FPS_3 = 30;
+const MARIO_WALK_SPEED  = 16 * 10;
+const MARIO_WALK_ACCEL  = 16 * 20;
+const MARIO_RUN_SPEED   = 16 * 18;
+const MARIO_RUN_ACCEL   = 16 * 18;
+const MARIO_WALK_FPS    = 15;
+const MARIO_RUN_FPS     = 30;
 
 enum LocoState {
     idle,           // when nothing else is happening
@@ -426,10 +425,9 @@ class Mario {
     sprite: Phaser.Sprite;
     locoState: LocoState;
     horizMovement: number;
-    prevHorizMovement: number = 0.0;
-    locoVelocity: number = 0.0;
-    
-    locoContDistance: number;   // How much continuous distance of locomotion (running/walking in same direction)
+    hspeed: number;     // Horizontal linear speed
+    vspeed: number;     // Vertical linear speed
+    fspeed: number;     // Animation frames speed
     
     constructor(start_object) {
         this.startObject = start_object;
@@ -443,7 +441,7 @@ class Mario {
         // - running
         let frs:Array<string> = Phaser.Animation.generateFrameNames('smario0_', 3, 5, '.png');
         frs.push('smario0_4.png');
-        this.sprite.animations.add('run', frs, MARIO_FPS_1, true);
+        this.sprite.animations.add('run', frs, MARIO_WALK_FPS, true);
         // - braking
         this.sprite.animations.add('brake', ['smario0_2.png'], 0);
         // - initial
@@ -452,9 +450,9 @@ class Mario {
         // - Locomotion
         this.locoState = LocoState.idle;
         this.horizMovement = 0.0;
-        
-        // Motion
-        this.locoContDistance = 0;
+        this.hspeed = 0.0;
+        this.vspeed = 0.0;
+        this.fspeed = 0.0;
         
         // Physics
         phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
@@ -464,144 +462,56 @@ class Mario {
     
     public update():void {
         this.runLocomotion();
-        this.prevHorizMovement = this.horizMovement;
     }
     
     // Locomotion:
     protected runLocomotion():void {
-        switch(this.locoState) {
-            case LocoState.idle:
-                this.state_loco_idle();
-                break;
-                
-            case LocoState.walking:
-                this.state_loco_walking();
-                break;
-                
-            case LocoState.running:
-                this.state_loco_running();
-                break;
-                
-            case LocoState.stopping:
-                this.state_loco_stopping();
-                break;
-                
-            case LocoState.reversing:
-                this.state_loco_reversing();
-                break;
-                
-            default:
-                // Unknown
-                console.log("Default Locomotion State: This shouldn't happen! state is: " + this.locoState.toString());
+        // Braking
+        let is_braking: boolean = false;
+        if((this.hspeed > 0.0 && this.horizMovement < 0.0) || (this.hspeed < 0.0 && this.horizMovement > 0.0)) {
+            is_braking = true;
         }
-    }
-    
-    // State:Idle
-    protected state_loco_idle():void {
-        if(this.sprite.animations.name !== 'idle') {
-            this.sprite.animations.play('idle');
-        }   
-        if(this.horizMovement !== 0.0) {
-            this.locoState = LocoState.walking;
-        }
-        this.sprite.body.velocity.x = 0.0;
-    }
-    
-    // State:Walking
-    protected state_loco_walking():void {
-        if(this.sprite.animations.name !== 'run') {
-            this.sprite.animations.play('run', MARIO_FPS_1);
-            this.locoVelocity = MARIO_SPEED_1;
-        }
-        if(Math.abs(this.horizMovement) > 0.0) {
-            this.sprite.scale.x = 2.0 * this.horizMovement;
-            this.sprite.body.velocity.x = this.locoVelocity * this.horizMovement;
-            if(this.horizMovement === this.prevHorizMovement) {
-                this.locoContDistance += this.locoVelocity * phaser.time.physicsElapsed;
-                if(this.locoContDistance < 32.0) {
-                    // speed 1
-                    this.locoVelocity = MARIO_SPEED_1;
-                    this.sprite.animations.currentAnim.speed = MARIO_FPS_1;
-                } else {
-                    // speed 2
-                    this.locoVelocity = MARIO_SPEED_2;
-                    this.sprite.animations.currentAnim.speed = MARIO_FPS_2;
-                }
-            } else {
-                this.locoContDistance = 0.0;
-            }
-        } else { // Horizontal Movement = 0, stopping..
-            if(this.locoVelocity > 0.0) {
-                if(this.sprite.body.velocity.x > 0.0) {
-                    this.sprite.body.velocity.x = Math.max(this.sprite.body.velocity.x - MARIO_SPEED_3 * phaser.time.physicsElapsed, 0.0);
-                } else if(this.sprite.body.velocity.x < 0.0) {
-                    this.sprite.body.velocity.x = Math.min(this.sprite.body.velocity.x + MARIO_SPEED_3 * phaser.time.physicsElapsed, 0.0);
-                }
-                this.locoVelocity = Math.max(Math.abs(this.sprite.body.velocity.x), 0.0);
-                console.log(this.locoVelocity);
-            } else {
-                this.locoState = LocoState.idle;
-                this.locoVelocity = 0.0;
-                this.locoContDistance = 0.0;
+        
+        // Horizontal Motion
+        let accel: number = is_braking? MARIO_WALK_ACCEL * 2 : MARIO_WALK_ACCEL;
+        if(this.horizMovement > 0.0) {
+            this.hspeed = Math.min(MARIO_WALK_SPEED, this.hspeed + (accel * phaser.time.physicsElapsed));
+        } else if(this.horizMovement < 0.0) {
+            this.hspeed = Math.max(-MARIO_WALK_SPEED, this.hspeed - (accel * phaser.time.physicsElapsed));
+        } else {
+            if(this.hspeed > 0.0) {
+                this.hspeed = Math.max(0.0, this.hspeed - (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+            } else if(this.hspeed < 0.0) {
+                this.hspeed = Math.min(0.0, this.hspeed + (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
             }
         }
-    }
-    
-    // State:Running
-    protected state_loco_running():void {
-        console.log("TODO: State running");
-    }
-    
-    // State:Stopping
-    protected state_loco_stopping():void {
-        console.log("TODO: State stopping");
-    }
-    
-    // State:Reversing
-    protected state_loco_reversing():void {
-        console.log("TODO: State reversing");
-    }
-    
-    /*
-    public calcSpeed():Array {
-        let out = [];
-        let spd = MARIO_SPEED_1;
-        let spda = MARIO_FPS_1;
-        if(this.contDistance > 32) {
-            spd = MARIO_SPEED_2;
-            spda = MARIO_FPS_2;
+        
+        // Frame Animation
+        if(is_braking) {
+            if(this.sprite.animations.name !== 'brake') {
+                this.sprite.animations.play('brake');
+            }
+        } else if(Math.abs(this.hspeed) > 0.0) {
+            this.fspeed = Math.min(Math.ceil((Math.abs(this.hspeed) / MARIO_WALK_SPEED) * (MARIO_WALK_FPS - 5)) + 5, MARIO_WALK_FPS);
+            if(this.sprite.animations.name !== 'run') {
+                this.sprite.animations.play('run', this.fspeed);
+            } else if(this.sprite.animations.currentAnim.speed !== this.fspeed) {
+                this.sprite.animations.currentAnim.speed = this.fspeed;
+            }
+        } else {
+            if(this.sprite.animations.name !== 'idle') {
+                this.sprite.animations.play('idle');
+            }
         }
-        return [spd, spda];
-    }
-    
-    public goRight():void {
-        if(this.sprite.animations.name !== 'run') {
-            this.sprite.animations.play('run', MARIO_FPS_1);
+        
+        // Body Updates
+        this.sprite.body.velocity.x = this.hspeed;
+        if(this.hspeed > 0.0) {
+            this.sprite.scale.x = is_braking? -2.0 : 2.0;
+        } else if(this.hspeed < 0.0) {
+            this.sprite.scale.x = is_braking? 2.0 : -2.0;
         }
-        this.sprite.scale.x = 2.0;
-        let spd = this.calcSpeed();
-        this.sprite.body.velocity.x = spd[0];
-        this.sprite.animations.currentAnim.speed = spd[1];
-        this.contDistance += Math.abs(this.sprite.body.velocity.x) * phaser.time.physicsElapsed;
     }
-    
-    public goLeft():void {
-        if(this.sprite.animations.name !== 'run') {
-            this.sprite.animations.play('run', MARIO_FPS_1); 
-        }
-        this.sprite.scale.x = -2.0;
-        let spd = this.calcSpeed();
-        this.sprite.body.velocity.x = -spd[0];
-        this.sprite.animations.currentAnim.speed = spd[1];
-        this.contDistance += Math.abs(this.sprite.body.velocity.x) * phaser.time.physicsElapsed;
-    }
-    
-    public noLeftRight():void {
-        this.sprite.animations.play('idle');
-        this.sprite.body.velocity.x = 0;
-        this.contDistance = 0.0;
-    }
-    */
     
     public debugRender():void {
         phaser.debug.body(this.sprite);
