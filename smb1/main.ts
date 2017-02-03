@@ -530,10 +530,20 @@ class Mario {
             } else {
                 this.locoContDistance = 0.0;
             }
-        } else {
-            this.locoState = LocoState.idle;
-            this.locoVelocity = 0.0;
-            this.locoContDistance = 0.0;
+        } else { // Horizontal Movement = 0, stopping..
+            if(this.locoVelocity > 0.0) {
+                if(this.sprite.body.velocity.x > 0.0) {
+                    this.sprite.body.velocity.x = Math.max(this.sprite.body.velocity.x - MARIO_SPEED_3 * phaser.time.physicsElapsed, 0.0);
+                } else if(this.sprite.body.velocity.x < 0.0) {
+                    this.sprite.body.velocity.x = Math.min(this.sprite.body.velocity.x + MARIO_SPEED_3 * phaser.time.physicsElapsed, 0.0);
+                }
+                this.locoVelocity = Math.max(Math.abs(this.sprite.body.velocity.x), 0.0);
+                console.log(this.locoVelocity);
+            } else {
+                this.locoState = LocoState.idle;
+                this.locoVelocity = 0.0;
+                this.locoContDistance = 0.0;
+            }
         }
     }
     
