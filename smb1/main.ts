@@ -387,12 +387,13 @@ class LevelScene extends Scene {
         phaser.physics.arcade.collide(this.mario.sprite, this.blocksLayer);
         
         if(this.kbRight.isDown) {
-            this.mario.goRight();
+            this.mario.horizMovement = 1.0;
         } else if (this.kbLeft.isDown) {
-            this.mario.goLeft();
+            this.mario.horizMovement = -1.0;
         } else {
-            this.mario.noLeftRight();
+            this.mario.horizMovement = 0.0;
         }
+        this.mario.update();
     }
     
     public render():void {
@@ -411,11 +412,24 @@ const MARIO_FPS_1 = 10;
 const MARIO_FPS_2 = 15;
 const MARIO_FPS_3 = 30;
 
+enum LocoState {
+    idle,           // when nothing else is happening
+    walking,        // Walking from speed 1 to speed 2, use distance for alpha
+    running,        // Running from speed 1 to speed 2, use distance for alpha
+    stopping,       // Stopping (so anything to idle as long as velocity.x != 0 and on ground)
+    reversing,      // When walking/running (velocity.x != 0) then reverse dir. 
+                    // If speed >= threshold then play sliding motion until threshold -> zero speed -> reverse
+};
+
 class Mario {
     startObject: any;
     sprite: Phaser.Sprite;
-    speed: number;
-    contDistance: number;   // How much continuous distance of running (holding directional)
+    locoState: LocoState;
+    horizMovement: number;
+    prevHorizMovement: number = 0.0;
+    locoVelocity: number = 0.0;
+    
+    locoContDistance: number;   // How much continuous distance of locomotion (running/walking in same direction)
     
     constructor(start_object) {
         this.startObject = start_object;
@@ -429,20 +443,116 @@ class Mario {
         // - running
         let frs:Array<string> = Phaser.Animation.generateFrameNames('smario0_', 3, 5, '.png');
         frs.push('smario0_4.png');
-        this.sprite.animations.add('run', frs, 10, true);
+        this.sprite.animations.add('run', frs, MARIO_FPS_1, true);
         // - braking
         this.sprite.animations.add('brake', ['smario0_2.png'], 0);
         // - initial
-        this.sprite.animations.play('run');
+        this.sprite.animations.play('idle');
+        
+        // - Locomotion
+        this.locoState = LocoState.idle;
+        this.horizMovement = 0.0;
+        
         // Motion
-        this.speed = 16.0;
-        this.contDistance = 0;
+        this.locoContDistance = 0;
+        
         // Physics
         phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
         this.sprite.body.collideWorldBounds = true;
         this.sprite.body.setSize(16, 16, 0, 0);
     }
     
+    public update():void {
+        this.runLocomotion();
+        this.prevHorizMovement = this.horizMovement;
+    }
+    
+    // Locomotion:
+    protected runLocomotion():void {
+        switch(this.locoState) {
+            case LocoState.idle:
+                this.state_loco_idle();
+                break;
+                
+            case LocoState.walking:
+                this.state_loco_walking();
+                break;
+                
+            case LocoState.running:
+                this.state_loco_running();
+                break;
+                
+            case LocoState.stopping:
+                this.state_loco_stopping();
+                break;
+                
+            case LocoState.reversing:
+                this.state_loco_reversing();
+                break;
+                
+            default:
+                // Unknown
+                console.log("Default Locomotion State: This shouldn't happen! state is: " + this.locoState.toString());
+        }
+    }
+    
+    // State:Idle
+    protected state_loco_idle():void {
+        if(this.sprite.animations.name !== 'idle') {
+            this.sprite.animations.play('idle');
+        }   
+        if(this.horizMovement !== 0.0) {
+            this.locoState = LocoState.walking;
+        }
+        this.sprite.body.velocity.x = 0.0;
+    }
+    
+    // State:Walking
+    protected state_loco_walking():void {
+        if(this.sprite.animations.name !== 'run') {
+            this.sprite.animations.play('run', MARIO_FPS_1);
+            this.locoVelocity = MARIO_SPEED_1;
+        }
+        if(Math.abs(this.horizMovement) > 0.0) {
+            this.sprite.scale.x = 2.0 * this.horizMovement;
+            this.sprite.body.velocity.x = this.locoVelocity * this.horizMovement;
+            if(this.horizMovement === this.prevHorizMovement) {
+                this.locoContDistance += this.locoVelocity * phaser.time.physicsElapsed;
+                if(this.locoContDistance < 32.0) {
+                    // speed 1
+                    this.locoVelocity = MARIO_SPEED_1;
+                    this.sprite.animations.currentAnim.speed = MARIO_FPS_1;
+                } else {
+                    // speed 2
+                    this.locoVelocity = MARIO_SPEED_2;
+                    this.sprite.animations.currentAnim.speed = MARIO_FPS_2;
+                }
+            } else {
+                this.locoContDistance = 0.0;
+            }
+        } else {
+            this.locoState = LocoState.idle;
+            this.locoVelocity = 0.0;
+            this.locoContDistance = 0.0;
+        }
+    }
+    
+    // State:Running
+    protected state_loco_running():void {
+        console.log("TODO: State running");
+    }
+    
+    // State:Stopping
+    protected state_loco_stopping():void {
+        console.log("TODO: State stopping");
+    }
+    
+    // State:Reversing
+    protected state_loco_reversing():void {
+        console.log("TODO: State reversing");
+    }
+    
+    /*
     public calcSpeed():Array {
         let out = [];
         let spd = MARIO_SPEED_1;
@@ -481,6 +591,7 @@ class Mario {
         this.sprite.body.velocity.x = 0;
         this.contDistance = 0.0;
     }
+    */
     
     public debugRender():void {
         phaser.debug.body(this.sprite);
