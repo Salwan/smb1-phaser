@@ -54,6 +54,7 @@ class SMBGame {
         if(phaser.input.gamepad.supported && phaser.input.gamepad.active) {
             gamepad1 = phaser.input.gamepad.pad1;
         }
+        
         // Start scene
         let start_screen:StartScreen = new StartScreen(this);
         this.changeScene(start_screen);
@@ -411,19 +412,9 @@ const MARIO_RUN_ACCEL   = 16 * 18;
 const MARIO_WALK_FPS    = 15;
 const MARIO_RUN_FPS     = 30;
 
-enum LocoState {
-    idle,           // when nothing else is happening
-    walking,        // Walking from speed 1 to speed 2, use distance for alpha
-    running,        // Running from speed 1 to speed 2, use distance for alpha
-    stopping,       // Stopping (so anything to idle as long as velocity.x != 0 and on ground)
-    reversing,      // When walking/running (velocity.x != 0) then reverse dir. 
-                    // If speed >= threshold then play sliding motion until threshold -> zero speed -> reverse
-};
-
 class Mario {
     startObject: any;
     sprite: Phaser.Sprite;
-    locoState: LocoState;
     horizMovement: number;
     hspeed: number;     // Horizontal linear speed
     vspeed: number;     // Vertical linear speed
@@ -448,7 +439,6 @@ class Mario {
         this.sprite.animations.play('idle');
         
         // - Locomotion
-        this.locoState = LocoState.idle;
         this.horizMovement = 0.0;
         this.hspeed = 0.0;
         this.vspeed = 0.0;
@@ -467,7 +457,7 @@ class Mario {
     // Locomotion:
     protected runLocomotion():void {
         // Braking
-        let is_braking: boolean = false;
+        let is_braking = false;
         if((this.hspeed > 0.0 && this.horizMovement < 0.0) || (this.hspeed < 0.0 && this.horizMovement > 0.0)) {
             is_braking = true;
         }
