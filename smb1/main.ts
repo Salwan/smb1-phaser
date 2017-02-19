@@ -75,6 +75,7 @@ class SMBGame {
             debugBar.wordWrap = true;
             debugBar.wordWrapWidth = WIDTH - 2;
             debugBar.lineSpacing = -7;
+            debugBar.fixedToCamera = true;
         }
         
         // Start scene
@@ -190,9 +191,9 @@ class StartScreen extends Scene {
         
         let copyright_txt = phaser.add.bitmapText(104 * RESMULX, 119 * RESMULY, 'smb', '\xA91985 NINTENDO', 12 * RESMULX);
         copyright_txt.tint = 0xfcbcb0;
-        phaser.add.bitmapText(24 * RESMULX, 142 * RESMULY, 'smb', 'PRESS-BIND BUTTON 1 = ACTION', 12 * RESMULX);
+        phaser.add.bitmapText(18 * RESMULX, 142 * RESMULY, 'smb', 'PRESS-BIND BUTTON 1 = ACTION', 12 * RESMULX);
         
-        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 = JUMP', 12 * RESMULX);
+        this.btn2Text = phaser.add.bitmapText(24 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 = JUMP', 12 * RESMULX);
         this.btn2Text.visible = false;
         
         this.originalKBOwner = phaser.input.keyboard.onDownCallback;
@@ -306,6 +307,7 @@ class LevelScene extends Scene {
     objectsLayer: Phaser.TilemapLayer;
     blocksLayer: Phaser.TilemapLayer;
     BGLayer: Phaser.TilemapLayer;
+    hudGroup: Phaser.Group;
     mario: Mario;
     
     kbUp: Phaser.Key;
@@ -327,16 +329,19 @@ class LevelScene extends Scene {
     public create():void {
         phaser.stage.backgroundColor = COLOR_SKY;
         
+        // HUD Group
+        this.hudGroup = phaser.add.group(undefined, 'hud', true);
+        
         // HUD / MARIO
         let score_txt = this.gameSession.player.score.toString();
         while(score_txt.length < 6) {
             score_txt = '0' + score_txt;
         }
-        phaser.add.bitmapText(24 * RESMULX, 14 * RESMULY, 'smb', 'MARIO', 12 * RESMULX);
-        phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'smb', score_txt, 12 * RESMULX);
+        phaser.add.bitmapText(24 * RESMULX, 14 * RESMULY, 'smb', 'MARIO', 12 * RESMULX, this.hudGroup);
+        phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'smb', score_txt, 12 * RESMULX, this.hudGroup);
         
         // HUD / COINS
-        let coin:Phaser.Sprite = phaser.add.sprite(89 * RESMULX, 24 * RESMULY, 'smb1atlas');
+        let coin:Phaser.Sprite = phaser.add.sprite(89 * RESMULX, 24 * RESMULY, 'smb1atlas', undefined, this.hudGroup);
         coin.scale.set(RESMULX, RESMULY);
         let fnames:Array<string> = Phaser.Animation.generateFrameNames('scoin0_', 0, 2, '.png');
         fnames.push('scoin0_1.png');
@@ -348,15 +353,15 @@ class LevelScene extends Scene {
             coins_txt = '0' + coins_txt;
         }
         coins_txt = 'x' + coins_txt;
-        phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'smb', coins_txt, 12 * RESMULX);
+        phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'smb', coins_txt, 12 * RESMULX, this.hudGroup);
         
         // HUD / WORLD
         let stage_txt:string = this.gameSession.world.toString() + '-' + this.gameSession.stage.toString();
-        phaser.add.bitmapText(144 * RESMULX, 14 * RESMULY, 'smb', 'WORLD', 12 * RESMULX);
-        phaser.add.bitmapText(152 * RESMULX, 22 * RESMULY, 'smb', stage_txt, 12 * RESMULX);
+        phaser.add.bitmapText(144 * RESMULX, 14 * RESMULY, 'smb', 'WORLD', 12 * RESMULX, this.hudGroup);
+        phaser.add.bitmapText(152 * RESMULX, 22 * RESMULY, 'smb', stage_txt, 12 * RESMULX, this.hudGroup);
         
         // HUD / TIME
-        phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX);
+        phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX, this.hudGroup);
         
         // LOAD LEVEL
         this.tilemap = phaser.add.tilemap('level11');
@@ -410,6 +415,10 @@ class LevelScene extends Scene {
         this.kbRight2 = phaser.input.keyboard.addKey(Phaser.Keyboard.D);
         this.kb1 = phaser.input.keyboard.addKey(this.smbGame.keyboardBtn1);
         this.kb2 = phaser.input.keyboard.addKey(this.smbGame.keyboardBtn2);
+    }
+    
+    public destroy():void {
+        this.hudGroup.destroy();
     }
     
     public update():void {
