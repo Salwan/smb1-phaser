@@ -2,17 +2,19 @@
 
 import '../phaser262/build/phaser.min.js';
 
-const WIDTH = 512.0;
-const HEIGHT = 480.0;
-const RESMULX = 2.0;
-const RESMULY = 2.0;
+const WIDTH     = 512.0;
+const HEIGHT    = 480.0;
+const RESMULX   = 2.0;
+const RESMULY   = 2.0;
 
-const COLOR_SKY = 0x5c94fc;
-const COLOR_BLACK = 0x000000;
-const COLOR_WHITE = 0xffffff;
+const COLOR_SKY     = 0x5c94fc;
+const COLOR_BLACK   = 0x000000;
+const COLOR_WHITE   = 0xffffff;
 
 
-const debugMode = false;
+const debugMode             = false;
+const enableDebugBar        = true;
+let debugBar:   Phaser.Text = null;
 
 let phaser:     Phaser.Game = null;
 let gamepad1:   Phaser.SinglePad = null; // First GamePad
@@ -55,6 +57,15 @@ class SMBGame {
             gamepad1 = phaser.input.gamepad.pad1;
         }
         
+        // Debug text at top for emitting continuous debug info (more effective than using console)
+        if(enableDebugBar) {
+            debugBar = phaser.add.text(1, 1, "", {font: "bold 11px Lucida Console", fill: "#fff"});
+            debugBar.setShadow(1, 1, 'rgba(0, 0, 0, 0.5)', 2);
+            debugBar.wordWrap = true;
+            debugBar.wordWrapWidth = WIDTH - 2;
+            debugBar.lineSpacing = -7;
+        }
+        
         // Start scene
         let start_screen:StartScreen = new StartScreen(this);
         this.changeScene(start_screen);
@@ -95,6 +106,9 @@ class SMBGame {
             // Fake blank screen for 0.2 second (polish element)
             let t = phaser.time.events.add(0.2 * 1000, () => { 
                 scene.create(); 
+                if(debugBar) {
+                    phaser.world.addChild(debugBar);
+                }
                 phaser.world.visible = true;
                 this.currentScene = scene;
             });
@@ -111,6 +125,10 @@ class SMBGame {
     public startLevel():void {
         let level_scene:LevelScene = new LevelScene(this, this.gameSession);
         this.changeScene(level_scene);
+    }
+    
+    public debugText(_text) {
+        this.debugBar.text = _text;
     }
 };
 
@@ -405,12 +423,13 @@ class LevelScene extends Scene {
 };
 
 //----------------- MARIO
-const MARIO_WALK_SPEED  = 16 * 10;
-const MARIO_WALK_ACCEL  = 16 * 20;
-const MARIO_RUN_SPEED   = 16 * 18;
-const MARIO_RUN_ACCEL   = 16 * 18;
-const MARIO_WALK_FPS    = 15;
-const MARIO_RUN_FPS     = 30;
+const MARIO_WALK_SPEED          = 16 * 11;
+const MARIO_WALK_ACCEL          = 16 * 20;
+const MARIO_RUN_SPEED           = 16 * 18;
+const MARIO_RUN_ACCEL           = 16 * 18;
+const MARIO_WALK_FPS            = 15;
+const MARIO_RUN_FPS             = 30;
+const MARIO_BRAKING_ACCEL_MUL   = 3;
 
 class Mario {
     startObject: any;
@@ -456,6 +475,10 @@ class Mario {
     
     // Locomotion:
     protected runLocomotion():void {
+        // Blocked Left/Right
+        let is_lblocked = this.sprite.body.blocked.left;
+        let is_rblocked = this.sprite.body.blocked.right;
+        
         // Braking
         let is_braking = false;
         if((this.hspeed > 0.0 && this.horizMovement < 0.0) || (this.hspeed < 0.0 && this.horizMovement > 0.0)) {
@@ -463,16 +486,32 @@ class Mario {
         }
         
         // Horizontal Motion
-        let accel: number = is_braking? MARIO_WALK_ACCEL * 2 : MARIO_WALK_ACCEL;
-        if(this.horizMovement > 0.0) {
-            this.hspeed = Math.min(MARIO_WALK_SPEED, this.hspeed + (accel * phaser.time.physicsElapsed));
-        } else if(this.horizMovement < 0.0) {
-            this.hspeed = Math.max(-MARIO_WALK_SPEED, this.hspeed - (accel * phaser.time.physicsElapsed));
-        } else {
+        let accel: number = is_braking? MARIO_WALK_ACCEL * MARIO_BRAKING_ACCEL_MUL : MARIO_WALK_ACCEL;
+        if(this.horizMovement > 0.0) {          // Right Direction
+            if(!is_rblocked) {
+                this.hspeed = Math.min(MARIO_WALK_SPEED, this.hspeed + (accel * phaser.time.physicsElapsed));
+            } else {
+                this.hspeed = 1.0;
+            }
+        } else if(this.horizMovement < 0.0) {   // Left Direction
+            if(!is_lblocked) {
+                this.hspeed = Math.max(-MARIO_WALK_SPEED, this.hspeed - (accel * phaser.time.physicsElapsed));
+            } else {
+                this.hspeed = -1.0;
+            }
+        } else {                                // No Direction
             if(this.hspeed > 0.0) {
-                this.hspeed = Math.max(0.0, this.hspeed - (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                if(!is_rblocked) {
+                    this.hspeed = Math.max(0.0, this.hspeed - (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                } else {
+                    this.hspeed = 0;
+                }
             } else if(this.hspeed < 0.0) {
-                this.hspeed = Math.min(0.0, this.hspeed + (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                if(!is_lblocked) {
+                    this.hspeed = Math.min(0.0, this.hspeed + (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                } else {
+                    this.hspeed = 0;
+                }
             }
         }
         
@@ -500,6 +539,14 @@ class Mario {
             this.sprite.scale.x = is_braking? -2.0 : 2.0;
         } else if(this.hspeed < 0.0) {
             this.sprite.scale.x = is_braking? 2.0 : -2.0;
+        }
+        
+        // When running against a barrier speed code still runs so if you stop mario keeps running for a short while as 
+        // speed tweens to zero. You should detect actual frame to frame movement and if it was zero set speed to minimum
+        // so mario can stop quickly when directions are released.
+        if(debugBar) {
+            debugBar.text = "Blocked  left: " + (this.sprite.body.blocked.left? "Yes" : "No") + "\n";
+            debugBar.text += "Blocked right: " + (this.sprite.body.blocked.right? "Yes" : "No");
         }
     }
     
