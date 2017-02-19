@@ -591,13 +591,17 @@ class Mario {
         } else {                                // No Direction
             if(this.hspeed > 0.0) {
                 if(!is_rblocked) {
-                    this.hspeed = Math.max(0.0, this.hspeed - (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                    if(!this.isJumping) { // no slow down while jumping
+                        this.hspeed = Math.max(0.0, this.hspeed - (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                    }
                 } else {
                     this.hspeed = 0;
                 }
             } else if(this.hspeed < 0.0) {
                 if(!is_lblocked) {
-                    this.hspeed = Math.min(0.0, this.hspeed + (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                    if(!this.isJumping) {  // no slow down while jumping
+                        this.hspeed = Math.min(0.0, this.hspeed + (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                    }
                 } else {
                     this.hspeed = 0;
                 }
@@ -628,7 +632,6 @@ class Mario {
         
         // Body Updates
         this.sprite.body.velocity.x = this.hspeed;
-        //this.sprite.body.velocity.y = this.vspeed; // depends on acceleration only!
         this.sprite.body.velocity.y = clamp(this.sprite.body.velocity.y, -MAX_SPEED, MAX_SPEED);
         
         if(this.hspeed > 0.0) {
