@@ -6,6 +6,7 @@ const WIDTH     = 512.0;
 const HEIGHT    = 480.0;
 const RESMULX   = 2.0;
 const RESMULY   = 2.0;
+const GRAVITY   = 16 * 20;
 
 const COLOR_SKY     = 0x5c94fc;
 const COLOR_BLACK   = 0x000000;
@@ -18,6 +19,11 @@ let debugBar:   Phaser.Text = null;
 
 let phaser:     Phaser.Game = null;
 let gamepad1:   Phaser.SinglePad = null; // First GamePad
+let sfx = {
+    coin: null,
+    bump: null,
+    jump_small: null,
+};
 
 ////////////////////////////////////////////////////// SMBGame
 class SMBGame {
@@ -44,6 +50,7 @@ class SMBGame {
         phaser.load.bitmapFont('smb', './smb1/assets/fonts/emulogic_0.png', './smb1/assets/fonts/emulogic.fnt');
         phaser.load.audio('coin', './smb1/assets/sfx/smb_coin.wav');
         phaser.load.audio('bump', './smb1/assets/sfx/smb_bump.wav');
+        phaser.load.audio('jump_small', './smb1/assets/sfx/smb_jump-small.wav');
         phaser.load.atlas('smb1atlas', './smb1/assets/sprites/smb1atlas.png', './smb1/assets/sprites/smb1atlas.json');
         
         phaser.load.tilemap('level11', './smb1/assets/levels/world11.json', null, Phaser.Tilemap.TILED_JSON);
@@ -51,6 +58,10 @@ class SMBGame {
     }
 
     public create():void {
+        // Init sound effects
+        sfx.coin =          phaser.add.audio('coin');
+        sfx.bump =          phaser.add.audio('bump');
+        sfx.jump_small =    phaser.add.audio('jump_small');
         // Gamepad
         phaser.input.gamepad.start();
         if(phaser.input.gamepad.supported && phaser.input.gamepad.active) {
@@ -126,10 +137,6 @@ class SMBGame {
         let level_scene:LevelScene = new LevelScene(this, this.gameSession);
         this.changeScene(level_scene);
     }
-    
-    public debugText(_text) {
-        this.debugBar.text = _text;
-    }
 };
 
 ////////////////////////////////////////////////////// GameSession
@@ -170,8 +177,6 @@ class Scene {
 
 ///////////////////////////// StartScreen
 class StartScreen extends Scene {
-    bumpSound:      Phaser.Sound        = null;
-    startSound:     Phaser.Sound        = null;
     btn2Text:       Phaser.BitmapText   = null;
     boundBtn1:      boolean             = false;
     originalKBOwner:any;
@@ -190,9 +195,6 @@ class StartScreen extends Scene {
         this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 = ACTION', 12 * RESMULX);
         this.btn2Text.visible = false;
         
-        this.startSound = phaser.add.audio("coin");
-        this.bumpSound = phaser.add.audio('bump');
-        
         this.originalKBOwner = phaser.input.keyboard.onDownCallback;
         phaser.input.keyboard.onDownCallback = () => { this.onAnyKeyDown(); };
     }
@@ -205,7 +207,7 @@ class StartScreen extends Scene {
                         this.smbGame.gamepadBtn1 = ib;
                         this.boundBtn1 = true;
                         this.btn2Text.visible = true;
-                        this.bumpSound.play();
+                        sfx.bump.play();
                     } else {
                         if(ib !== this.smbGame.gamepadBtn1) {
                             this.smbGame.gamepadBtn2 = ib;
@@ -223,7 +225,7 @@ class StartScreen extends Scene {
             this.smbGame.keyboardBtn1 = kc;
             this.boundBtn1 = true;
             this.btn2Text.visible = true;
-            this.bumpSound.play();
+            sfx.bump.play();
         } else {
             if(kc !== this.smbGame.keyboardBtn1) {
                 this.smbGame.keyboardBtn2 = kc;
@@ -234,7 +236,7 @@ class StartScreen extends Scene {
     
     public startGame():void {
         phaser.input.keyboard.onDownCallback = this.originalKBOwner;
-        this.startSound.play(); 
+        sfx.coin.play();
         this.smbGame.startGame();
     }
 };
@@ -308,6 +310,10 @@ class LevelScene extends Scene {
     kbDown: Phaser.Key;
     kbLeft: Phaser.Key;
     kbRight: Phaser.Key;
+    kbUp2: Phaser.Key;      // For own sanity, WSAD will be added as secondary cursors
+    kbDown2: Phaser.Key;
+    kbLeft2: Phaser.Key;
+    kbRight2: Phaser.Key;
     kb1: Phaser.Key;
     kb2: Phaser.Key;
     
@@ -360,7 +366,7 @@ class LevelScene extends Scene {
         
         // INIT PHYSICS
         phaser.physics.startSystem(Phaser.Physics.ARCADE);
-        phaser.physics.arcade.gravity.y = 350.0;
+        phaser.physics.arcade.gravity.y = GRAVITY;
         phaser.physics.arcade.enable(this.blocksLayer);
         // - collision for Blocks Layer
         this.tilemap.setCollisionBetween(0, 10000, true, this.blocksLayer);
@@ -395,9 +401,13 @@ class LevelScene extends Scene {
         
         // INPUT
         this.kbUp = phaser.input.keyboard.addKey(Phaser.Keyboard.UP);
+        this.kbUp2 = phaser.input.keyboard.addKey(Phaser.Keyboard.W);
         this.kbDown = phaser.input.keyboard.addKey(Phaser.Keyboard.DOWN);
+        this.kbDown2 = phaser.input.keyboard.addKey(Phaser.Keyboard.S);
         this.kbLeft = phaser.input.keyboard.addKey(Phaser.Keyboard.LEFT);
+        this.kbLeft2 = phaser.input.keyboard.addKey(Phaser.Keyboard.A);
         this.kbRight = phaser.input.keyboard.addKey(Phaser.Keyboard.RIGHT);
+        this.kbRight2 = phaser.input.keyboard.addKey(Phaser.Keyboard.D);
         this.kb1 = phaser.input.keyboard.addKey(this.smbGame.keyboardBtn1);
         this.kb2 = phaser.input.keyboard.addKey(this.smbGame.keyboardBtn2);
     }
@@ -405,18 +415,11 @@ class LevelScene extends Scene {
     public update():void {
         phaser.physics.arcade.collide(this.mario.sprite, this.blocksLayer);
         
-        let in_right = this.kbRight.isDown || (gamepad1 && gamepad1.axis(0) > 0.0);
-        let in_left = this.kbLeft.isDown || (gamepad1 && gamepad1.axis(0) < 0.0);
+        let in_right = this.kbRight.isDown || this.kbRight2.isDown || (gamepad1 && gamepad1.axis(0) > 0.0);
+        let in_left = this.kbLeft.isDown || this.kbLeft2.isDown || (gamepad1 && gamepad1.axis(0) < 0.0);
         let in_jump = this.kb1.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn1));
-        let in_action = this.kb2.isDown || gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn2));
+        let in_action = this.kb2.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn2));
         
-        /*if(in_right) {
-            this.mario.horizMovement = 1.0;
-        } else if (in_left) {
-            this.mario.horizMovement = -1.0;
-        } else {
-            this.mario.horizMovement = 0.0;
-        }*/
         this.mario.update(in_right, in_left, in_jump, in_action);
     }
     
@@ -435,13 +438,18 @@ const MARIO_RUN_ACCEL           = 16 * 18;
 const MARIO_WALK_FPS            = 15;
 const MARIO_RUN_FPS             = 30;
 const MARIO_BRAKING_ACCEL_MUL   = 3;
+const MARIO_JUMP_ACCEL          = 16 * 320;
+const MARIO_JUMP_SPEED          = 16 * 35;
 
 class Mario {
     startObject: any;
     sprite: Phaser.Sprite;
     horizMovement: number;
     jumpInput: boolean;
+    jumpInputHit: boolean;
     actionInput: boolean;
+    isJumping: boolean;
+    isFalling: boolean;
     hspeed: number;     // Horizontal linear speed
     vspeed: number;     // Vertical linear speed
     fspeed: number;     // Animation frames speed
@@ -461,12 +469,17 @@ class Mario {
         this.sprite.animations.add('run', frs, MARIO_WALK_FPS, true);
         // - braking
         this.sprite.animations.add('brake', ['smario0_2.png'], 0);
+        // - jumping
+        this.sprite.animations.add('jump', ['smario0_6.png'], 0);
         // - initial
         this.sprite.animations.play('idle');
         
         // - Locomotion
         this.horizMovement = 0.0;
         this.jumpInput = false;
+        this.jumpInputHit = false;
+        this.isJumping = false;
+        this.isFalling = false;
         this.hspeed = 0.0;
         this.vspeed = 0.0;
         this.fspeed = 0.0;
@@ -485,6 +498,11 @@ class Mario {
         } else {
             this.horizMovement = 0.0;
         }
+        if(!this.jumpInput && in_jump) {
+            this.jumpInputHit = true;
+        } else {
+            this.jumpInputHit = false;
+        }
         this.jumpInput = in_jump;
         this.actionInput = in_action;
         this.runLocomotion();
@@ -492,9 +510,11 @@ class Mario {
     
     // Locomotion:
     protected runLocomotion():void {
-        // Blocked Left/Right
+        // Blocked Left/Right/Up/Down
         let is_lblocked = this.sprite.body.blocked.left;
         let is_rblocked = this.sprite.body.blocked.right;
+        let is_ublocked = this.sprite.body.blocked.up;
+        let is_dblocked = this.sprite.body.blocked.down;
         
         // Braking
         let is_braking = false;
@@ -502,7 +522,27 @@ class Mario {
             is_braking = true;
         }
         
-        // Vertical Motion - TODO
+        // Jumping
+        if(this.jumpInputHit && is_dblocked && !this.isJumping && !this.isFalling && this.sprite.animations.name !== 'jump') {
+            this.isJumping = true;   
+            if(this.vspeed > 0.0) {
+                this.vspeed = -MARIO_JUMP_SPEED / 2.0;
+            }
+            sfx.jump_small.play();
+        } 
+        if(this.isJumping) {
+            this.vspeed = Math.max(-MARIO_JUMP_SPEED, this.vspeed - (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
+            if(this.vspeed === -MARIO_JUMP_SPEED) {
+                this.isJumping = false;
+                this.isFalling = true;
+            }
+        } 
+        if(this.isFalling) {
+            this.vspeed = Math.min(GRAVITY, this.vspeed + (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
+            if(is_dblocked) {
+                this.isFalling = false;
+            }
+        }
         
         // Horizontal Motion
         let accel: number = is_braking? MARIO_WALK_ACCEL * MARIO_BRAKING_ACCEL_MUL : MARIO_WALK_ACCEL;
@@ -535,7 +575,11 @@ class Mario {
         }
         
         // Frame Animation
-        if(is_braking) {
+        if(this.isJumping || this.isFalling) {
+            if(this.sprite.animations.name !== 'jump') {
+                this.sprite.animations.play('jump');
+            }
+        } else if(is_braking) {
             if(this.sprite.animations.name !== 'brake') {
                 this.sprite.animations.play('brake');
             }
@@ -562,8 +606,11 @@ class Mario {
         }
         
         if(debugBar) {
-            debugBar.text = "Blocked  left: " + (this.sprite.body.blocked.left? "Yes" : "No") + "\n";
-            debugBar.text += "Blocked right: " + (this.sprite.body.blocked.right? "Yes" : "No");
+            debugBar.text = "Blocked  left right up down: ";
+            debugBar.text += (this.sprite.body.blocked.left? "Yes " : "No ");
+            debugBar.text += (this.sprite.body.blocked.right? "Yes " : "No ");
+            debugBar.text += (this.sprite.body.blocked.up? "Yes " : "No ");
+            debugBar.text += (this.sprite.body.blocked.down? "Yes " : "No ");
         }
     }
     
