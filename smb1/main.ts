@@ -6,7 +6,8 @@ const WIDTH     = 512.0;
 const HEIGHT    = 480.0;
 const RESMULX   = 2.0;
 const RESMULY   = 2.0;
-const GRAVITY   = 16 * 40;
+const GRAVITY   = 16 * 220;
+const MAX_SPEED = 16 * 40;
 
 const COLOR_SKY     = 0x5c94fc;
 const COLOR_BLACK   = 0x000000;
@@ -24,6 +25,11 @@ let sfx = {
     bump: null,
     jump: null,
 };
+
+////////////////////////////////////////////////////// Utils
+function clamp(num, min, max):number {
+  return num <= min ? min : num >= max ? max : num;
+}
 
 ////////////////////////////////////////////////////// SMBGame
 class SMBGame {
@@ -440,7 +446,7 @@ class LevelScene extends Scene {
 };
 
 //----------------- MARIO
-const MARIO_WALK_SPEED          = 16 * 11;
+const MARIO_WALK_SPEED          = 16 * 12;
 const MARIO_WALK_ACCEL          = 16 * 20;
 const MARIO_RUN_SPEED           = 16 * 18;
 const MARIO_RUN_ACCEL           = 16 * 18;
@@ -449,6 +455,7 @@ const MARIO_RUN_FPS             = 30;
 const MARIO_BRAKING_ACCEL_MUL   = 3;
 const MARIO_JUMP_ACCEL          = 16 * 320;
 const MARIO_JUMP_SPEED          = 16 * 35;
+const MARIO_JUMP_FORCE_DURATION = 0.33;
 
 class Mario {
     startObject: any;
@@ -457,6 +464,7 @@ class Mario {
     jumpInput: boolean;
     jumpInputHit: boolean;
     jumpInputHeld: boolean;
+    jumpTime: number;
     actionInput: boolean;
     isJumping: boolean;
     isFalling: boolean;
@@ -471,6 +479,11 @@ class Mario {
         this.sprite.anchor.set(0.5, 1.0);
         this.sprite.scale.set(2.0);
         this.sprite.frameName = 'smario0_0.png';
+        // Physics
+        phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
+        this.sprite.body.collideWorldBounds = true;
+        this.sprite.body.syncBounds = false;
+        this.sprite.body.setSize(16, 16, 0, 0);
         // - idle
         this.sprite.animations.add('idle', ['smario0_0.png'], 0);
         // - running
@@ -489,16 +502,12 @@ class Mario {
         this.jumpInput = false;
         this.jumpInputHit = false;
         this.jumpInputHeld = false;
+        this.jumpTime = 0.0;
         this.isJumping = false;
         this.isFalling = false;
         this.hspeed = 0.0;
         this.vspeed = 0.0;
         this.fspeed = 0.0;
-        
-        // Physics
-        phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
-        this.sprite.body.collideWorldBounds = true;
-        this.sprite.body.setSize(16, 16, 0, 0);
     }
     
     public update(in_right, in_left, in_jump, in_action):void {
@@ -535,31 +544,33 @@ class Mario {
         
         // Jumping
         if(this.jumpInputHit && is_dblocked && !this.isJumping && !this.isFalling && this.sprite.animations.name !== 'jump') {
-            this.isJumping = true;   
+            this.isJumping = true;
             this.jumpInputHeld = true;
-            if(this.vspeed > 0.0) {
-                this.vspeed = -MARIO_JUMP_SPEED / 2.0;
-            }
+            this.jumpTime = 0.0;
+            this.sprite.body.velocity.y = -MAX_SPEED;
             sfx.jump.play();
-        } 
+        }
         if(this.isJumping) {
-            if(this.jumpInputHeld && !this.jumpInput) {
-                this.jumpInputHeld = false;
-            }
-            this.vspeed = Math.max(-MARIO_JUMP_SPEED, this.vspeed - (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
-            if(!this.jumpInputHeld) {
-                if(this.vspeed === -MARIO_JUMP_SPEED) {
-                    this.isJumping = false;
-                    this.isFalling = true;
+            this.jumpTime = Math.min(MARIO_JUMP_FORCE_DURATION, this.jumpTime + phaser.time.physicsElapsed);
+            if(this.jumpInputHeld) {
+                if(!this.jumpInput) {
+                    this.jumpInputHeld = false;
+                } else if(this.jumpTime < MARIO_JUMP_FORCE_DURATION) {
+                    // This allows velocity force to apply as long as the button is held for MARIO_JUMP_FORCE_DURATION seconds.
+                    // Modify this to introduce higher jumps when sprinting.
+                    this.sprite.body.velocity.y = -MAX_SPEED + (MAX_SPEED * 0.5 * (this.jumpTime / MARIO_JUMP_FORCE_DURATION));
                 }
             }
-        } 
-        if(this.isFalling) {
-            this.jumpInputHeld = false;
-            this.vspeed = Math.min(GRAVITY, this.vspeed + (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
-            if(is_dblocked) {
-                this.isFalling = false;
+            if(is_ublocked) {
+                this.sprite.body.velocity.y = 0.0;
             }
+            if(this.sprite.body.velocity.y >= 0.0) {
+                this.isJumping = false;
+                this.isFalling = true;
+            }
+        }
+        if(this.isFalling === true && is_dblocked) {
+            this.isFalling = false;
         }
         
         // Horizontal Motion
@@ -616,7 +627,9 @@ class Mario {
         
         // Body Updates
         this.sprite.body.velocity.x = this.hspeed;
-        this.sprite.body.velocity.y = this.vspeed;
+        //this.sprite.body.velocity.y = this.vspeed; // depends on acceleration only!
+        this.sprite.body.velocity.y = clamp(this.sprite.body.velocity.y, -MAX_SPEED, MAX_SPEED);
+        
         if(this.hspeed > 0.0) {
             this.sprite.scale.x = is_braking? -2.0 : 2.0;
         } else if(this.hspeed < 0.0) {
