@@ -22,7 +22,7 @@ let gamepad1:   Phaser.SinglePad = null; // First GamePad
 let sfx = {
     coin: null,
     bump: null,
-    jump_small: null,
+    jump: null,
 };
 
 ////////////////////////////////////////////////////// SMBGame
@@ -50,7 +50,7 @@ class SMBGame {
         phaser.load.bitmapFont('smb', './smb1/assets/fonts/emulogic_0.png', './smb1/assets/fonts/emulogic.fnt');
         phaser.load.audio('coin', './smb1/assets/sfx/smb_coin.wav');
         phaser.load.audio('bump', './smb1/assets/sfx/smb_bump.wav');
-        phaser.load.audio('jump_small', './smb1/assets/sfx/smb_jump-small.wav');
+        phaser.load.audio('jump', './smb1/assets/sfx/smb_jump-small.wav');
         phaser.load.atlas('smb1atlas', './smb1/assets/sprites/smb1atlas.png', './smb1/assets/sprites/smb1atlas.json');
         
         phaser.load.tilemap('level11', './smb1/assets/levels/world11.json', null, Phaser.Tilemap.TILED_JSON);
@@ -61,7 +61,7 @@ class SMBGame {
         // Init sound effects
         sfx.coin =          phaser.add.audio('coin');
         sfx.bump =          phaser.add.audio('bump');
-        sfx.jump_small =    phaser.add.audio('jump_small');
+        sfx.jump =    phaser.add.audio('jump');
         // Gamepad
         phaser.input.gamepad.start();
         if(phaser.input.gamepad.supported && phaser.input.gamepad.active) {
@@ -190,9 +190,9 @@ class StartScreen extends Scene {
         
         let copyright_txt = phaser.add.bitmapText(104 * RESMULX, 119 * RESMULY, 'smb', '\xA91985 NINTENDO', 12 * RESMULX);
         copyright_txt.tint = 0xfcbcb0;
-        phaser.add.bitmapText(24 * RESMULX, 142 * RESMULY, 'smb', 'PRESS-BIND BUTTON 1 = JUMP', 12 * RESMULX);
+        phaser.add.bitmapText(24 * RESMULX, 142 * RESMULY, 'smb', 'PRESS-BIND BUTTON 1 = ACTION', 12 * RESMULX);
         
-        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 = ACTION', 12 * RESMULX);
+        this.btn2Text = phaser.add.bitmapText(18 * RESMULX, 154 * RESMULY, 'smb', 'PRESS-BIND BUTTON 2 = JUMP', 12 * RESMULX);
         this.btn2Text.visible = false;
         
         this.originalKBOwner = phaser.input.keyboard.onDownCallback;
@@ -204,11 +204,13 @@ class StartScreen extends Scene {
             for(let ib = 0; ib < 4; ++ib) {
                 if(gamepad1.isDown(ib)) {
                     if(!this.boundBtn1) {
+                        // Action
                         this.smbGame.gamepadBtn1 = ib;
                         this.boundBtn1 = true;
                         this.btn2Text.visible = true;
                         sfx.bump.play();
                     } else {
+                        // Jump
                         if(ib !== this.smbGame.gamepadBtn1) {
                             this.smbGame.gamepadBtn2 = ib;
                             this.startGame();
@@ -417,8 +419,8 @@ class LevelScene extends Scene {
         
         let in_right = this.kbRight.isDown || this.kbRight2.isDown || (gamepad1 && gamepad1.axis(0) > 0.0);
         let in_left = this.kbLeft.isDown || this.kbLeft2.isDown || (gamepad1 && gamepad1.axis(0) < 0.0);
-        let in_jump = this.kb1.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn1));
-        let in_action = this.kb2.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn2));
+        let in_action = this.kb1.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn1));
+        let in_jump = this.kb2.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn2));
         
         this.mario.update(in_right, in_left, in_jump, in_action);
     }
@@ -528,7 +530,7 @@ class Mario {
             if(this.vspeed > 0.0) {
                 this.vspeed = -MARIO_JUMP_SPEED / 2.0;
             }
-            sfx.jump_small.play();
+            sfx.jump.play();
         } 
         if(this.isJumping) {
             this.vspeed = Math.max(-MARIO_JUMP_SPEED, this.vspeed - (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
