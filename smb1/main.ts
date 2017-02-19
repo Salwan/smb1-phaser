@@ -405,14 +405,19 @@ class LevelScene extends Scene {
     public update():void {
         phaser.physics.arcade.collide(this.mario.sprite, this.blocksLayer);
         
-        if(this.kbRight.isDown) {
+        let in_right = this.kbRight.isDown || (gamepad1 && gamepad1.axis(0) > 0.0);
+        let in_left = this.kbLeft.isDown || (gamepad1 && gamepad1.axis(0) < 0.0);
+        let in_jump = this.kb1.isDown || (gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn1));
+        let in_action = this.kb2.isDown || gamepad1 && gamepad1.isDown(this.smbGame.gamepadBtn2));
+        
+        /*if(in_right) {
             this.mario.horizMovement = 1.0;
-        } else if (this.kbLeft.isDown) {
+        } else if (in_left) {
             this.mario.horizMovement = -1.0;
         } else {
             this.mario.horizMovement = 0.0;
-        }
-        this.mario.update();
+        }*/
+        this.mario.update(in_right, in_left, in_jump, in_action);
     }
     
     public render():void {
@@ -435,6 +440,8 @@ class Mario {
     startObject: any;
     sprite: Phaser.Sprite;
     horizMovement: number;
+    jumpInput: boolean;
+    actionInput: boolean;
     hspeed: number;     // Horizontal linear speed
     vspeed: number;     // Vertical linear speed
     fspeed: number;     // Animation frames speed
@@ -459,6 +466,7 @@ class Mario {
         
         // - Locomotion
         this.horizMovement = 0.0;
+        this.jumpInput = false;
         this.hspeed = 0.0;
         this.vspeed = 0.0;
         this.fspeed = 0.0;
@@ -469,7 +477,16 @@ class Mario {
         this.sprite.body.setSize(16, 16, 0, 0);
     }
     
-    public update():void {
+    public update(in_right, in_left, in_jump, in_action):void {
+        if(in_right) {
+            this.horizMovement = 1.0;
+        } else if (in_left) {
+            this.horizMovement = -1.0;
+        } else {
+            this.horizMovement = 0.0;
+        }
+        this.jumpInput = in_jump;
+        this.actionInput = in_action;
         this.runLocomotion();
     }
     
@@ -484,6 +501,8 @@ class Mario {
         if((this.hspeed > 0.0 && this.horizMovement < 0.0) || (this.hspeed < 0.0 && this.horizMovement > 0.0)) {
             is_braking = true;
         }
+        
+        // Vertical Motion - TODO
         
         // Horizontal Motion
         let accel: number = is_braking? MARIO_WALK_ACCEL * MARIO_BRAKING_ACCEL_MUL : MARIO_WALK_ACCEL;
@@ -535,6 +554,7 @@ class Mario {
         
         // Body Updates
         this.sprite.body.velocity.x = this.hspeed;
+        this.sprite.body.velocity.y = this.vspeed;
         if(this.hspeed > 0.0) {
             this.sprite.scale.x = is_braking? -2.0 : 2.0;
         } else if(this.hspeed < 0.0) {
