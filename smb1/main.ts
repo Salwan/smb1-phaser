@@ -541,9 +541,6 @@ class Mario {
             this.sprite.scale.x = is_braking? 2.0 : -2.0;
         }
         
-        // When running against a barrier speed code still runs so if you stop mario keeps running for a short while as 
-        // speed tweens to zero. You should detect actual frame to frame movement and if it was zero set speed to minimum
-        // so mario can stop quickly when directions are released.
         if(debugBar) {
             debugBar.text = "Blocked  left: " + (this.sprite.body.blocked.left? "Yes" : "No") + "\n";
             debugBar.text += "Blocked right: " + (this.sprite.body.blocked.right? "Yes" : "No");
