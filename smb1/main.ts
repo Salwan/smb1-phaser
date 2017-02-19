@@ -6,7 +6,7 @@ const WIDTH     = 512.0;
 const HEIGHT    = 480.0;
 const RESMULX   = 2.0;
 const RESMULY   = 2.0;
-const GRAVITY   = 16 * 20;
+const GRAVITY   = 16 * 40;
 
 const COLOR_SKY     = 0x5c94fc;
 const COLOR_BLACK   = 0x000000;
@@ -372,8 +372,6 @@ class LevelScene extends Scene {
         phaser.physics.arcade.enable(this.blocksLayer);
         // - collision for Blocks Layer
         this.tilemap.setCollisionBetween(0, 10000, true, this.blocksLayer);
-        //this.tilemap.setCollision(16, true, this.blocksLayer);
-        //this.tilemap.setCollisionByExclusion([0], true, this.blocksLayer);
         this.blocksLayer.resizeWorld();
         if(debugMode) {
             this.blocksLayer.debug = true;
@@ -449,6 +447,7 @@ class Mario {
     horizMovement: number;
     jumpInput: boolean;
     jumpInputHit: boolean;
+    jumpInputHeld: boolean;
     actionInput: boolean;
     isJumping: boolean;
     isFalling: boolean;
@@ -480,6 +479,7 @@ class Mario {
         this.horizMovement = 0.0;
         this.jumpInput = false;
         this.jumpInputHit = false;
+        this.jumpInputHeld = false;
         this.isJumping = false;
         this.isFalling = false;
         this.hspeed = 0.0;
@@ -527,19 +527,26 @@ class Mario {
         // Jumping
         if(this.jumpInputHit && is_dblocked && !this.isJumping && !this.isFalling && this.sprite.animations.name !== 'jump') {
             this.isJumping = true;   
+            this.jumpInputHeld = true;
             if(this.vspeed > 0.0) {
                 this.vspeed = -MARIO_JUMP_SPEED / 2.0;
             }
             sfx.jump.play();
         } 
         if(this.isJumping) {
+            if(this.jumpInputHeld && !this.jumpInput) {
+                this.jumpInputHeld = false;
+            }
             this.vspeed = Math.max(-MARIO_JUMP_SPEED, this.vspeed - (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
-            if(this.vspeed === -MARIO_JUMP_SPEED) {
-                this.isJumping = false;
-                this.isFalling = true;
+            if(!this.jumpInputHeld) {
+                if(this.vspeed === -MARIO_JUMP_SPEED) {
+                    this.isJumping = false;
+                    this.isFalling = true;
+                }
             }
         } 
         if(this.isFalling) {
+            this.jumpInputHeld = false;
             this.vspeed = Math.min(GRAVITY, this.vspeed + (MARIO_JUMP_ACCEL * phaser.time.physicsElapsed));
             if(is_dblocked) {
                 this.isFalling = false;
