@@ -543,7 +543,7 @@ class Mario {
         }
         
         // Jumping
-        if(this.jumpInputHit && is_dblocked && !this.isJumping && !this.isFalling && this.sprite.animations.name !== 'jump') {
+        if(this.jumpInputHit && is_dblocked && !this.isJumping && this.sprite.animations.name !== 'jump') {
             this.isJumping = true;
             this.jumpInputHeld = true;
             this.jumpTime = 0.0;
@@ -551,26 +551,27 @@ class Mario {
             sfx.jump.play();
         }
         if(this.isJumping) {
-            this.jumpTime = Math.min(MARIO_JUMP_FORCE_DURATION, this.jumpTime + phaser.time.physicsElapsed);
-            if(this.jumpInputHeld) {
-                if(!this.jumpInput) {
-                    this.jumpInputHeld = false;
-                } else if(this.jumpTime < MARIO_JUMP_FORCE_DURATION) {
-                    // This allows velocity force to apply as long as the button is held for MARIO_JUMP_FORCE_DURATION seconds.
-                    // Modify this to introduce higher jumps when sprinting.
-                    this.sprite.body.velocity.y = -MAX_SPEED + (MAX_SPEED * 0.5 * (this.jumpTime / MARIO_JUMP_FORCE_DURATION));
+            if(!this.isFalling) {
+                this.jumpTime = Math.min(MARIO_JUMP_FORCE_DURATION, this.jumpTime + phaser.time.physicsElapsed);
+                if(this.jumpInputHeld) {
+                    if(!this.jumpInput) {
+                        this.jumpInputHeld = false;
+                    } else if(this.jumpTime < MARIO_JUMP_FORCE_DURATION) {
+                        // This allows velocity force to apply as long as the button is held for MARIO_JUMP_FORCE_DURATION seconds.
+                        // Modify this to introduce higher jumps when sprinting.
+                        this.sprite.body.velocity.y = -MAX_SPEED + (MAX_SPEED * 0.5 * (this.jumpTime / MARIO_JUMP_FORCE_DURATION));
+                    }
                 }
-            }
-            if(is_ublocked) {
-                this.sprite.body.velocity.y = 0.0;
-            }
-            if(this.sprite.body.velocity.y >= 0.0) {
+                if(is_ublocked) {
+                    this.sprite.body.velocity.y = 0.0;
+                }
+                if(this.sprite.body.velocity.y >= 0.0) {
+                    this.isFalling = true;
+                }
+            } else if(is_dblocked) {
                 this.isJumping = false;
-                this.isFalling = true;
+                this.isFalling = false;    
             }
-        }
-        if(this.isFalling === true && is_dblocked) {
-            this.isFalling = false;
         }
         
         // Horizontal Motion
@@ -604,7 +605,7 @@ class Mario {
         }
         
         // Frame Animation
-        if(this.isJumping || this.isFalling) {
+        if(this.isJumping) {
             if(this.sprite.animations.name !== 'jump') {
                 this.sprite.animations.play('jump');
             }
