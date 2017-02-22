@@ -377,6 +377,14 @@ class LevelScene extends Scene {
         this.blocksLayer = this.tilemap.createLayer('BLOCKS');
         this.blocksLayer.setScale(2.0);
         
+        // Create Question Block sprite
+        /*let questionBlock:Phaser.Sprite = phaser.make.sprite(0, 0, 'smb1atlas');
+        questionBlock.scale.set(2.0);
+        questionBlock.frameName = "itemtile0.png";
+        let frs:Array<String> = ["itemtile0.png", "itemtile1.png", "itemtile2.png", 'itemtile1.png', 'itemtile0.png'];
+        questionBlock.animations.add('bling', frs, 5, true);
+        questionBlock.animations.play('bling');*/
+        
         // INIT PHYSICS
         phaser.physics.startSystem(Phaser.Physics.ARCADE);
         phaser.physics.arcade.gravity.y = GRAVITY;
@@ -390,6 +398,15 @@ class LevelScene extends Scene {
         
         // Objects: SPAWNER
         console.log("Tilemap objects count: " + this.tilemap.objects['OBJECTS'].length);
+        let les_blocks = this.tilemap.layers[0];
+        {
+            console.log("les_blocks`" + les_blocks.name + "` length: " + les_blocks.data.length);
+        /*let c = 0;
+        for(let ob of les_blocks) {
+            console.log("LesBlocks [" + c + "]: " + ob);
+            c++;
+        }*/
+        }
         let les_objects = this.tilemap.objects['OBJECTS'];
         let player_spawn = null;
         for(let ob of les_objects) {
@@ -482,7 +499,6 @@ class Mario {
         // Physics
         phaser.physics.enable(this.sprite, Phaser.Physics.ARCADE);
         this.sprite.body.collideWorldBounds = true;
-        this.sprite.body.syncBounds = false;
         this.sprite.body.setSize(16, 16, 0, 0);
         // - idle
         this.sprite.animations.add('idle', ['smario0_0.png'], 0);
@@ -563,6 +579,7 @@ class Mario {
                     }
                 }
                 if(is_ublocked) {
+                    sfx.bump.play();
                     this.sprite.body.velocity.y = 0.0;
                 }
                 if(this.sprite.body.velocity.y >= 0.0) {
@@ -574,7 +591,7 @@ class Mario {
             }
         }
         
-        // Horizontal Motion
+        // Horizontal Motion 
         let accel: number = is_braking? MARIO_WALK_ACCEL * MARIO_BRAKING_ACCEL_MUL : MARIO_WALK_ACCEL;
         if(this.horizMovement > 0.0) {          // Right Direction
             if(!is_rblocked) {
@@ -634,10 +651,12 @@ class Mario {
         this.sprite.body.velocity.x = this.hspeed;
         this.sprite.body.velocity.y = clamp(this.sprite.body.velocity.y, -MAX_SPEED, MAX_SPEED);
         
-        if(this.hspeed > 0.0) {
-            this.sprite.scale.x = is_braking? -2.0 : 2.0;
-        } else if(this.hspeed < 0.0) {
-            this.sprite.scale.x = is_braking? 2.0 : -2.0;
+        if(!this.isJumping) {
+            if(this.hspeed > 0.0) {
+                this.sprite.scale.x = is_braking? -2.0 : 2.0;
+            } else if(this.hspeed < 0.0) {
+                this.sprite.scale.x = is_braking? 2.0 : -2.0;
+            }
         }
         
         if(debugBar) {
