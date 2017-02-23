@@ -307,6 +307,9 @@ class InfoScreen extends Scene {
 };
 
 ///////////////////////////// LevelScene
+const BLOCK_ITEM                = 8;
+const BLOCK_BRICK               = 54;
+
 class LevelScene extends Scene {
     gameSession: GameSession;
     tilemap: Phaser.Tilemap;
@@ -315,6 +318,7 @@ class LevelScene extends Scene {
     BGLayer: Phaser.TilemapLayer;
     hudGroup: Phaser.Group;
     mario: Mario;
+    questionMarksGroup: Phaser.Group;
     
     kbUp: Phaser.Key;
     kbDown: Phaser.Key;
@@ -377,14 +381,6 @@ class LevelScene extends Scene {
         this.blocksLayer = this.tilemap.createLayer('BLOCKS');
         this.blocksLayer.setScale(2.0);
         
-        // Create Question Block sprite
-        /*let questionBlock:Phaser.Sprite = phaser.make.sprite(0, 0, 'smb1atlas');
-        questionBlock.scale.set(2.0);
-        questionBlock.frameName = "itemtile0.png";
-        let frs:Array<String> = ["itemtile0.png", "itemtile1.png", "itemtile2.png", 'itemtile1.png', 'itemtile0.png'];
-        questionBlock.animations.add('bling', frs, 5, true);
-        questionBlock.animations.play('bling');*/
-        
         // INIT PHYSICS
         phaser.physics.startSystem(Phaser.Physics.ARCADE);
         phaser.physics.arcade.gravity.y = GRAVITY;
@@ -397,16 +393,37 @@ class LevelScene extends Scene {
         }
         
         // Objects: SPAWNER
-        console.log("Tilemap objects count: " + this.tilemap.objects['OBJECTS'].length);
-        let les_blocks = this.tilemap.layers[0];
+        this.questionMarksGroup = phaser.add.group(undefined, 'questionMarks');
+        let blocks_layer = this.tilemap.getLayerIndex('BLOCKS');
+        let les_blocks = this.tilemap.layers[blocks_layer];
+        let les_question_blocks = [];
         {
-            console.log("les_blocks`" + les_blocks.name + "` length: " + les_blocks.data.length);
-        /*let c = 0;
-        for(let ob of les_blocks) {
-            console.log("LesBlocks [" + c + "]: " + ob);
-            c++;
-        }*/
+            // Object returned isn't TilemapLayer but it isn't exactly BLOCKS from the json file.
+            // It has the basic width/height x/y visible properties and a data array of 15 arrays
+            // each 128 Tile object.
+            // These the properties in Layer object:
+            // alpha=1, bodies=[], callbacks=[], data=[array of arrays 15*128], dirty=false, height=15, heightInPixels=240
+            // indexes=[], name="BLOCKS", properties=__proto__, visible=true, width=128, widthInPixels=2048, x=0, y=0
+            for(let r = 0; r < les_blocks.height; ++r) {
+                for(let c = 0; c < les_blocks.width; ++c) {
+                    if(les_blocks.data[r][c].index === BLOCK_ITEM) {
+                        let qb = les_blocks.data[r][c];
+                        les_question_blocks.push(qb);
+                        let qbs = phaser.add.sprite(qb.x * 32, qb.y * 32, 'smb1atlas', 'itemtile0.png', this.questionMarksGroup);
+                        qbs.scale.set(2.0);
+                        let frs:Array<string> = ["itemtile0.png", "itemtile1.png", "itemtile2.png", 'itemtile1.png', 'itemtile0.png'];
+                        qbs.animations.add('bling', frs, 5, true);
+                        qbs.animations.play('bling'); 
+                    } else if(les_blocks.data[r][c].index === BLOCK_BRICK) {
+                        // Hides brick blocks while keeping them active for tile collisions
+                        //les_blocks.data[r][c].alpha = 0.0;
+                    }
+                }
+            }
+            console.log("Question blocks found: " + les_question_blocks.length);
         }
+        
+        // Objects: OBJECTS and player spawn
         let les_objects = this.tilemap.objects['OBJECTS'];
         let player_spawn = null;
         for(let ob of les_objects) {
