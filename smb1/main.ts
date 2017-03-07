@@ -322,6 +322,7 @@ class InfoScreen extends Scene {
 };
 
 ///////////////////////////// LevelScene
+const LAYER_BLOCKS              = "BLOCKS";
 const BLOCK_ITEM                = 8;
 const BLOCK_BRICK               = 54;
 
@@ -454,7 +455,7 @@ class LevelScene extends Scene {
         player_spawn.tx = Math.floor(player_spawn.x / 16.0);
         player_spawn.ty = Math.floor(player_spawn.y / 16.0);
         
-        this.mario = new Mario(player_spawn);
+        this.mario = new Mario(player_spawn, this.tilemap);
         
         // CAMERA
         phaser.camera.follow(this.mario.sprite);
@@ -505,7 +506,8 @@ const MARIO_BRAKING_ACCEL_MUL   = 3;
 const MARIO_JUMP_FORCE_DURATION = 0.33;
 
 class Mario {
-    startObject: any;
+    startObject: any; // x, y: player spawn coords.
+    tilemap: Phaser.Tilemap;
     sprite: Phaser.Sprite;
     horizMovement: number;
     jumpInput: boolean;
@@ -519,8 +521,9 @@ class Mario {
     vspeed: number;     // Vertical linear speed
     fspeed: number;     // Animation frames speed
     
-    constructor(start_object) {
+    constructor(start_object, _tilemap) {
         this.startObject = start_object;
+        this.tilemap = _tilemap;
         // Sprite and Animations
         this.sprite = phaser.add.sprite(this.startObject.x * RESMULX + 16, this.startObject.y * RESMULY + 32, 'smb1atlas');
         this.sprite.anchor.set(0.5, 1.0);
@@ -611,6 +614,29 @@ class Mario {
                 if(is_ublocked) {
                     sfx.bump.play();
                     this.sprite.body.velocity.y = 0.0;
+                    // Player hit something above
+                    // - Convert player position to tile coords using mid-point
+                    let tx = Math.floor(this.sprite.body.center.x / (this.tilemap.tileWidth * 2));
+                    let ty = Math.floor(this.sprite.body.center.y / (this.tilemap.tileHeight * 2));
+                    if(ty > 0) { // Cause we are going to be searching up ^^
+                        // - Find out what's on top of player 
+                        let blocks_layer = this.tilemap.getLayerIndex('BLOCKS');
+                        let t:Phaser.Tile = this.tilemap.getTile(tx, ty - 1, blocks_layer);
+                        if(t) {
+                            console.log("Ooooh we got something: " + t.index);
+                        } else {
+                            console.log("We have nothing above. Need motion correction!");
+                        }
+                        // - Check to see if that thing is bound to an active object
+                        //   Use block objects for this, you can detect block object through tile if the type is active.
+                        //   You can retrieve tile through block object.
+                        //   Currently two active block objects only: brick, question block.
+                        // - Call function: hit_tile->activeObject->hit(player)
+                        // - Hit tile does the rest.
+                    } else {
+                        console.log("Ty = 0 and it detected hitting. This shouldn't happen once I unblock the world top edge.");
+                    }
+                    
                 }
                 if(this.sprite.body.velocity.y >= 0.0) {
                     this.isFalling = true;
