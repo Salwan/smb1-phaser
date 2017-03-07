@@ -16,6 +16,7 @@ const COLOR_WHITE   = 0xffffff;
 
 const debugMode             = false;
 const enableDebugBar        = true;
+const enableFPS             = true;
 let debugBar:   Phaser.Text = null;
 
 let phaser:     Phaser.Game = null;
@@ -40,6 +41,7 @@ class SMBGame {
     gamepadBtn2:    number          = 1;        // Defaults to Button 2
     keyboardBtn1:   number          = 90;       // Defaults to 'z' keycode
     keyboardBtn2:   number          = 88;       // Defaults to 'x' keycode
+    fpsText:        Phaser.Text     = null;
 
     public constructor() {
         phaser = new Phaser.Game(WIDTH, HEIGHT, Phaser.AUTO, 'content', { 
@@ -77,11 +79,17 @@ class SMBGame {
         // Debug text at top for emitting continuous debug info (more effective than using console)
         if(enableDebugBar) {
             debugBar = phaser.add.text(1, 1, "", {font: "bold 11px Lucida Console", fill: "#fff"});
-            debugBar.setShadow(1, 1, 'rgba(0, 0, 0, 0.5)', 2);
+            debugBar.setShadow(1, 1, 'rgba(0, 0, 0, 0.5)', 0);
             debugBar.wordWrap = true;
             debugBar.wordWrapWidth = WIDTH - 2;
             debugBar.lineSpacing = -7;
             debugBar.fixedToCamera = true;
+        }
+        if(enableFPS) {
+            this.fpsText = phaser.add.text(WIDTH - 16, 1, "00", {font: "bold 11px Lucida Console", fill: '#fcbcb0'});
+            this.fpsText.setShadow(1, 1, '#000', 0);
+            this.fpsText.fixedToCamera = true;
+            phaser.time.advancedTiming = true;
         }
         
         // Start scene
@@ -90,6 +98,10 @@ class SMBGame {
     }
 
     public update():void {
+        // Update fps
+        if(enableFPS) {
+            this.fpsText.text = Math.floor(phaser.time.fps).toString();
+        }
         // Update gamepad1
         if(phaser.input.gamepad.supported && phaser.input.gamepad.active && phaser.input.gamepad.pad1.connected) {
             gamepad1 = phaser.input.gamepad.pad1;
@@ -126,6 +138,9 @@ class SMBGame {
                 scene.create(); 
                 if(debugBar) {
                     phaser.world.addChild(debugBar);
+                }
+                if(this.fpsText) {
+                    phaser.world.addChild(this.fpsText); 
                 }
                 phaser.world.visible = true;
                 this.currentScene = scene;
@@ -487,8 +502,6 @@ const MARIO_RUN_ACCEL           = 16 * 18;
 const MARIO_WALK_FPS            = 15;
 const MARIO_RUN_FPS             = 30;
 const MARIO_BRAKING_ACCEL_MUL   = 3;
-const MARIO_JUMP_ACCEL          = 16 * 320;
-const MARIO_JUMP_SPEED          = 16 * 35;
 const MARIO_JUMP_FORCE_DURATION = 0.33;
 
 class Mario {
@@ -609,16 +622,25 @@ class Mario {
         }
         
         // Horizontal Motion 
-        let accel: number = is_braking? MARIO_WALK_ACCEL * MARIO_BRAKING_ACCEL_MUL : MARIO_WALK_ACCEL;
+        let WalkSpeed = MARIO_WALK_SPEED;
+        let WalkAccel = MARIO_WALK_ACCEL;
+        let BrakeAccelMul = MARIO_BRAKING_ACCEL_MUL;
+        let WalkFPS = MARIO_WALK_FPS;
+        if(this.actionInput) {
+            WalkSpeed = MARIO_RUN_SPEED;
+            WalkAccel = MARIO_RUN_ACCEL;
+            WalkFPS = MARIO_RUN_FPS;
+        }
+        let accel: number = is_braking? WalkAccel * BrakeAccelMul : WalkAccel;
         if(this.horizMovement > 0.0) {          // Right Direction
             if(!is_rblocked) {
-                this.hspeed = Math.min(MARIO_WALK_SPEED, this.hspeed + (accel * phaser.time.physicsElapsed));
+                this.hspeed = Math.min(WalkSpeed, this.hspeed + (accel * phaser.time.physicsElapsed));
             } else {
                 this.hspeed = 1.0;
             }
         } else if(this.horizMovement < 0.0) {   // Left Direction
             if(!is_lblocked) {
-                this.hspeed = Math.max(-MARIO_WALK_SPEED, this.hspeed - (accel * phaser.time.physicsElapsed));
+                this.hspeed = Math.max(-WalkSpeed, this.hspeed - (accel * phaser.time.physicsElapsed));
             } else {
                 this.hspeed = -1.0;
             }
@@ -626,7 +648,7 @@ class Mario {
             if(this.hspeed > 0.0) {
                 if(!is_rblocked) {
                     if(!this.isJumping) { // no slow down while jumping
-                        this.hspeed = Math.max(0.0, this.hspeed - (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                        this.hspeed = Math.max(0.0, this.hspeed - (WalkAccel * phaser.time.physicsElapsed));
                     }
                 } else {
                     this.hspeed = 0;
@@ -634,7 +656,7 @@ class Mario {
             } else if(this.hspeed < 0.0) {
                 if(!is_lblocked) {
                     if(!this.isJumping) {  // no slow down while jumping
-                        this.hspeed = Math.min(0.0, this.hspeed + (MARIO_WALK_ACCEL * phaser.time.physicsElapsed));
+                        this.hspeed = Math.min(0.0, this.hspeed + (WalkAccel * phaser.time.physicsElapsed));
                     }
                 } else {
                     this.hspeed = 0;
@@ -652,7 +674,7 @@ class Mario {
                 this.sprite.animations.play('brake');
             }
         } else if(Math.abs(this.hspeed) > 0.0) {
-            this.fspeed = Math.min(Math.ceil((Math.abs(this.hspeed) / MARIO_WALK_SPEED) * (MARIO_WALK_FPS - 5)) + 5, MARIO_WALK_FPS);
+            this.fspeed = Math.min(Math.ceil((Math.abs(this.hspeed) / WalkSpeed) * (WalkFPS - 5)) + 5, WalkFPS);
             if(this.sprite.animations.name !== 'run') {
                 this.sprite.animations.play('run', this.fspeed);
             } else if(this.sprite.animations.currentAnim.speed !== this.fspeed) {
