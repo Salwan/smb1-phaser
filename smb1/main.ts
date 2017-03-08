@@ -34,6 +34,8 @@ function clamp(num, min, max):number {
 
 ////////////////////////////////////////////////////// SMBGame
 class SMBGame {
+    static instance:SMBGame         = null;
+    
     currentScene:   Scene           = null; 
     gameSession:    GameSession     = null;
     player:         Player          = null;
@@ -42,11 +44,9 @@ class SMBGame {
     keyboardBtn1:   number          = 90;       // Defaults to 'z' keycode
     keyboardBtn2:   number          = 88;       // Defaults to 'x' keycode
     fpsText:        Phaser.Text     = null;
-    
-    static instance:SMBGame         = null;
 
     public constructor() {
-        this.instance = this;
+        SMBGame.instance = this;
         phaser = new Phaser.Game(WIDTH, HEIGHT, Phaser.AUTO, 'content', { 
             preload: () => { this.preload(); },
             create: () => { this.create(); },
@@ -326,16 +326,24 @@ class InfoScreen extends Scene {
 
 ///////////////////////////// LevelScene
 const LAYER_BLOCKS              = "BLOCKS";
+const LAYER_BG                  = "BG";
+const LAYER_ITEMS               = "ITEMS";
 const BLOCK_ITEM                = 8;
 const BLOCK_BRICK               = 54;
+const ITEM_GROWTH               = 66;
+const ITEM_LIFE                 = 67;
+const ITEM_FLOWER               = 68;
+const ITEM_COIN                 = 69;
 const BUMP_DISTANCE             = 8;
 
 class ActiveBlock {
-    tile: Phaser.Tile;
-    sprite: Phaser.Sprite;
-    tween: Phaser.Tween;
+    level:      LevelScene;
+    tile:       Phaser.Tile;
+    sprite:     Phaser.Sprite;
+    tween:      Phaser.Tween;
     
-    constructor(_tile:Phaser.Tile, _group:Phaser.Group) {
+    constructor(_level:LevelScene, _tile:Phaser.Tile, _group:Phaser.Group) {
+        this.level = _level;
         this.tile = _tile;
         this.tween = null;
         this.sprite = null;
@@ -364,15 +372,13 @@ class ActiveBlock {
             if(this.sprite.animations.currentAnim.name !== 'solid') {
                 this.sprite.animations.play('solid');
                 this._bumpBlock();
-                // Coin by default (test)
-                if(by_actor.name && by_actor.name === 'mario') {
-                    by_actor.giveCoin();
-                };
+                this.level.activateItem(this.tile);
             } else {
                 // Do nothing, block solid
             }
         } else if(this.tile.index === BLOCK_BRICK) {
             this._bumpBlock();
+            this.level.activateItem(this.tile);
         }
     }
     
@@ -457,9 +463,9 @@ class LevelScene extends Scene {
         // LOAD LEVEL
         this.tilemap = phaser.add.tilemap('level11');
         this.tilemap.addTilesetImage('main', 'level1_ss');
-        this.BGLayer = this.tilemap.createLayer('BG');
+        this.BGLayer = this.tilemap.createLayer(LAYER_BG);
         this.BGLayer.setScale(2.0);
-        this.blocksLayer = this.tilemap.createLayer('BLOCKS');
+        this.blocksLayer = this.tilemap.createLayer(LAYER_BLOCKS);
         this.blocksLayer.setScale(2.0);
         
         // INIT PHYSICS
@@ -476,7 +482,7 @@ class LevelScene extends Scene {
         // Objects: SPAWNER
         this.activeBlocks = new Array<ActiveBlock>();
         this.questionMarksGroup = phaser.add.group(undefined, 'questionMarks');
-        let blocks_layer = this.tilemap.getLayerIndex('BLOCKS');
+        let blocks_layer = this.tilemap.getLayerIndex(LAYER_BLOCKS);
         let les_blocks = this.tilemap.layers[blocks_layer];
         {
             // Object returned isn't TilemapLayer but it isn't exactly BLOCKS from the json file.
@@ -492,7 +498,7 @@ class LevelScene extends Scene {
                         console.log("Retrieved data tile from les_blocks is invalid.");
                     } else if(qb.index === BLOCK_BRICK || qb.index === BLOCK_ITEM) {
                         // Creates cover sprite if needed. Registers active object handler.
-                        this.activeBlocks.push(new ActiveBlock(qb, this.questionMarksGroup));
+                        this.activeBlocks.push(new ActiveBlock(this, qb, this.questionMarksGroup));
                     }
                 }
             }
@@ -554,14 +560,37 @@ class LevelScene extends Scene {
         }
     }
     
-    public get HUDCoins(): number { return this.gameSession.player.coins; }
-    public set HUDCoins(_coins:number) { 
+    private get HUDCoins(): number { return this.gameSession.player.coins; }
+    private set HUDCoins(_coins:number) { 
         this.gameSession.player.coins = _coins;
         let coins_txt:string = _coins.toString();
         if(coins_txt.length < 2) {
             coins_txt = '0' + coins_txt;
         }
         this.hudCoins.text = "x" + coins_txt;
+    }
+    
+    public giveCoin():void {
+        this.HUDCoins += 1;
+        sfx.coin.play();
+    }
+    
+    public activateItem(_blockTile: Phaser.Tile): void {
+        // - Get ITEMS layer index
+        let items_layer = this.tilemap.getLayerIndex(LAYER_ITEMS);
+        // - Check ITEMS layer index for special or -1
+        let item_index: number = this.tilemap.getTile(_blockTile.x, _blockTile.y, items_layer, true).index;
+        if(item_index === -1) {
+            // - If -1 and item is question block then default to single coin
+            if(_blockTile.index === BLOCK_ITEM) {
+                this.giveCoin();
+            }
+        } else {
+            console.log("Item activated! " + item_index);
+            if(item_index === ITEM_COIN) {
+                this.giveCoin();
+            }
+        }
     }
 };
 
@@ -694,7 +723,7 @@ class Mario {
                     let ty = Math.floor(this.sprite.body.center.y / (this.tilemap.tileHeight * 2));
                     if(ty > 0) { // Cause we are going to be searching up ^^
                         // - Find out what's on top of player 
-                        let blocks_layer = this.tilemap.getLayerIndex('BLOCKS');
+                        let blocks_layer = this.tilemap.getLayerIndex(LAYER_BLOCKS);
                         let t:Phaser.Tile = this.tilemap.getTile(tx, ty - 1, blocks_layer);
                         if(t) {
                             console.log("Ooooh we jump-hit something: " + t.index);
@@ -812,11 +841,6 @@ class Mario {
             debugBar.text += (this.sprite.body.blocked.up? "Yes " : "No ");
             debugBar.text += (this.sprite.body.blocked.down? "Yes " : "No ");
         }
-    }
-    
-    public giveCoin():void {
-        this.level.HUDCoins += 1;
-        sfx.coin.play();
     }
     
     public debugRender():void {
