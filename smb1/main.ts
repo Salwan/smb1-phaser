@@ -689,6 +689,7 @@ class Mario {
                         }
                     } else {
                         console.log("Ty = 0 and it detected hitting. This shouldn't happen once I unblock the world top edge.");
+                        b_sfx_bump = false;
                     }
                     if(b_sfx_bump) {
                         sfx.bump.play();
