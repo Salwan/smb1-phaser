@@ -325,6 +325,54 @@ class InfoScreen extends Scene {
 const LAYER_BLOCKS              = "BLOCKS";
 const BLOCK_ITEM                = 8;
 const BLOCK_BRICK               = 54;
+const BUMP_DISTANCE             = 8;
+
+class ActiveBlock {
+    tile: Phaser.Tile;
+    sprite: Phaser.Sprite;
+    tween: Phaser.Tween;
+    
+    constructor(_tile:Phaser.Tile, _group:Phaser.Group) {
+        this.tile = _tile;
+        this.tween = null;
+        this.sprite = null;
+
+        this._createSprite(_group);
+    } 
+    
+    private _createSprite(_group:Phaser.Group): void {
+        if(this.tile.index === BLOCK_ITEM) {
+            this.sprite = phaser.add.sprite(this.tile.x * 32, this.tile.y * 32, 'smb1atlas', 'itemtile0.png', _group);
+            this.sprite.scale.set(2.0);
+            let frs:Array<string> = ["itemtile0.png", "itemtile1.png", "itemtile2.png", 'itemtile1.png', 'itemtile0.png'];
+            this.sprite.animations.add('bling', frs, 5, true);
+            this.sprite.animations.add('solid', ["solidtile0.png"]);
+            this.sprite.animations.play('bling'); 
+        } else if(this.tile.index === BLOCK_BRICK) {
+            this.sprite = phaser.add.sprite(this.tile.x * 32, this.tile.y * 32, 'smb1atlas', 'bricktile0.png', _group);
+            this.sprite.scale.set(2.0);
+        }
+        this.tile.alpha = 0.0;
+        this.tile.properties.activeBlock = this;
+    }
+    
+    public hit(by_actor:any):void {
+        if(this.tile.index === BLOCK_ITEM) {
+            this.sprite.animations.play('solid');
+            this._bumpBlock();
+        } else if(this.tile.index === BLOCK_BRICK) {
+            this._bumpBlock();
+        }
+    }
+    
+    private _bumpBlock():void {
+        if(this.tween) {
+            this.tween.stop(true);
+            this.sprite.y = this.tile.y * 32;
+        }
+        this.tween = phaser.add.tween(this.sprite).to({y: this.sprite.y - BUMP_DISTANCE}, 100, "Linear", true, 0, 0, true);
+    }
+};
 
 class LevelScene extends Scene {
     gameSession: GameSession;
@@ -334,6 +382,7 @@ class LevelScene extends Scene {
     BGLayer: Phaser.TilemapLayer;
     hudGroup: Phaser.Group;
     mario: Mario;
+    activeBlocks: Array<ActiveBlock>;
     questionMarksGroup: Phaser.Group;
     
     kbUp: Phaser.Key;
@@ -409,10 +458,10 @@ class LevelScene extends Scene {
         }
         
         // Objects: SPAWNER
+        this.activeBlocks = new Array<ActiveBlock>();
         this.questionMarksGroup = phaser.add.group(undefined, 'questionMarks');
         let blocks_layer = this.tilemap.getLayerIndex('BLOCKS');
         let les_blocks = this.tilemap.layers[blocks_layer];
-        let les_question_blocks = [];
         {
             // Object returned isn't TilemapLayer but it isn't exactly BLOCKS from the json file.
             // It has the basic width/height x/y visible properties and a data array of 15 arrays
@@ -422,21 +471,16 @@ class LevelScene extends Scene {
             // indexes=[], name="BLOCKS", properties=__proto__, visible=true, width=128, widthInPixels=2048, x=0, y=0
             for(let r = 0; r < les_blocks.height; ++r) {
                 for(let c = 0; c < les_blocks.width; ++c) {
-                    if(les_blocks.data[r][c].index === BLOCK_ITEM) {
-                        let qb = les_blocks.data[r][c];
-                        les_question_blocks.push(qb);
-                        let qbs = phaser.add.sprite(qb.x * 32, qb.y * 32, 'smb1atlas', 'itemtile0.png', this.questionMarksGroup);
-                        qbs.scale.set(2.0);
-                        let frs:Array<string> = ["itemtile0.png", "itemtile1.png", "itemtile2.png", 'itemtile1.png', 'itemtile0.png'];
-                        qbs.animations.add('bling', frs, 5, true);
-                        qbs.animations.play('bling'); 
-                    } else if(les_blocks.data[r][c].index === BLOCK_BRICK) {
-                        // Hides brick blocks while keeping them active for tile collisions
-                        //les_blocks.data[r][c].alpha = 0.0;
+                    let qb:Phaser.Tile = les_blocks.data[r][c];
+                    if(!qb) {
+                        console.log("Retrieved data tile from les_blocks is invalid.");
+                    } else if(qb.index === BLOCK_BRICK || qb.index === BLOCK_ITEM) {
+                        // Creates cover sprite if needed. Registers active object handler.
+                        this.activeBlocks.push(new ActiveBlock(qb, this.questionMarksGroup));
                     }
                 }
             }
-            console.log("Question blocks found: " + les_question_blocks.length);
+            console.log("Active blocks count: " + this.activeBlocks.length);
         }
         
         // Objects: OBJECTS and player spawn
@@ -506,6 +550,7 @@ const MARIO_BRAKING_ACCEL_MUL   = 3;
 const MARIO_JUMP_FORCE_DURATION = 0.33;
 
 class Mario {
+    name: string;
     startObject: any; // x, y: player spawn coords.
     tilemap: Phaser.Tilemap;
     sprite: Phaser.Sprite;
@@ -522,6 +567,7 @@ class Mario {
     fspeed: number;     // Animation frames speed
     
     constructor(start_object, _tilemap) {
+        this.name = "mario";
         this.startObject = start_object;
         this.tilemap = _tilemap;
         // Sprite and Animations
@@ -623,16 +669,19 @@ class Mario {
                         let blocks_layer = this.tilemap.getLayerIndex('BLOCKS');
                         let t:Phaser.Tile = this.tilemap.getTile(tx, ty - 1, blocks_layer);
                         if(t) {
-                            console.log("Ooooh we got something: " + t.index);
+                            console.log("Ooooh we jump-hit something: " + t.index);
+                            // - Check to see if that thing is bound to an active object
+                            //   Use block objects for this, you can detect block object through tile if the type is active.
+                            //   You can retrieve tile through block object.
+                            //   Currently two active block objects only: brick, question block.
+                            if(t.properties.activeBlock !== undefined) {
+                                // - Call function: hit_tile->activeObject->hit(player)
+                                t.properties.activeBlock.hit(this);
+                                // Hit tile does the rest.   
+                            }
                         } else {
                             console.log("We have nothing above. Need motion correction!");
                         }
-                        // - Check to see if that thing is bound to an active object
-                        //   Use block objects for this, you can detect block object through tile if the type is active.
-                        //   You can retrieve tile through block object.
-                        //   Currently two active block objects only: brick, question block.
-                        // - Call function: hit_tile->activeObject->hit(player)
-                        // - Hit tile does the rest.
                     } else {
                         console.log("Ty = 0 and it detected hitting. This shouldn't happen once I unblock the world top edge.");
                     }
