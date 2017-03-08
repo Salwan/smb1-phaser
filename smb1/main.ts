@@ -42,8 +42,11 @@ class SMBGame {
     keyboardBtn1:   number          = 90;       // Defaults to 'z' keycode
     keyboardBtn2:   number          = 88;       // Defaults to 'x' keycode
     fpsText:        Phaser.Text     = null;
+    
+    static instance:SMBGame         = null;
 
     public constructor() {
+        this.instance = this;
         phaser = new Phaser.Game(WIDTH, HEIGHT, Phaser.AUTO, 'content', { 
             preload: () => { this.preload(); },
             create: () => { this.create(); },
@@ -361,6 +364,10 @@ class ActiveBlock {
             if(this.sprite.animations.currentAnim.name !== 'solid') {
                 this.sprite.animations.play('solid');
                 this._bumpBlock();
+                // Coin by default (test)
+                if(by_actor.name && by_actor.name === 'mario') {
+                    by_actor.giveCoin();
+                };
             } else {
                 // Do nothing, block solid
             }
@@ -379,26 +386,31 @@ class ActiveBlock {
 };
 
 class LevelScene extends Scene {
-    gameSession: GameSession;
-    tilemap: Phaser.Tilemap;
-    objectsLayer: Phaser.TilemapLayer;
-    blocksLayer: Phaser.TilemapLayer;
-    BGLayer: Phaser.TilemapLayer;
-    hudGroup: Phaser.Group;
-    mario: Mario;
-    activeBlocks: Array<ActiveBlock>;
+    gameSession:        GameSession;
+    
+    hudScore:           Phaser.BitmapText;
+    hudCoins:           Phaser.BitmapText;
+    hudTime:            Phaser.BitmapText;
+    
+    tilemap:            Phaser.Tilemap;
+    objectsLayer:       Phaser.TilemapLayer;
+    blocksLayer:        Phaser.TilemapLayer;
+    BGLayer:            Phaser.TilemapLayer;
+    hudGroup:           Phaser.Group;
+    mario:              Mario;
+    activeBlocks:       Array<ActiveBlock>;
     questionMarksGroup: Phaser.Group;
     
-    kbUp: Phaser.Key;
-    kbDown: Phaser.Key;
-    kbLeft: Phaser.Key;
-    kbRight: Phaser.Key;
-    kbUp2: Phaser.Key;      // For own sanity, WSAD will be added as secondary cursors
-    kbDown2: Phaser.Key;
-    kbLeft2: Phaser.Key;
-    kbRight2: Phaser.Key;
-    kb1: Phaser.Key;
-    kb2: Phaser.Key;
+    kbUp:               Phaser.Key;
+    kbDown:             Phaser.Key;
+    kbLeft:             Phaser.Key;
+    kbRight:            Phaser.Key;
+    kbUp2:              Phaser.Key;      // For own sanity, WSAD will be added as secondary cursors
+    kbDown2:            Phaser.Key;
+    kbLeft2:            Phaser.Key;
+    kbRight2:           Phaser.Key;
+    kb1:                Phaser.Key;
+    kb2:                Phaser.Key;
     
     constructor(smb_game:SMBGame, game_session:GameSession) {
         super(smb_game);
@@ -417,7 +429,7 @@ class LevelScene extends Scene {
             score_txt = '0' + score_txt;
         }
         phaser.add.bitmapText(24 * RESMULX, 14 * RESMULY, 'smb', 'MARIO', 12 * RESMULX, this.hudGroup);
-        phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'smb', score_txt, 12 * RESMULX, this.hudGroup);
+        this.hudScore = phaser.add.bitmapText(24 * RESMULX, 22 * RESMULY, 'smb', score_txt, 12 * RESMULX, this.hudGroup);
         
         // HUD / COINS
         let coin:Phaser.Sprite = phaser.add.sprite(89 * RESMULX, 24 * RESMULY, 'smb1atlas', undefined, this.hudGroup);
@@ -432,7 +444,7 @@ class LevelScene extends Scene {
             coins_txt = '0' + coins_txt;
         }
         coins_txt = 'x' + coins_txt;
-        phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'smb', coins_txt, 12 * RESMULX, this.hudGroup);
+        this.hudCoins = phaser.add.bitmapText(96 * RESMULX, 22 * RESMULY, 'smb', coins_txt, 12 * RESMULX, this.hudGroup);
         
         // HUD / WORLD
         let stage_txt:string = this.gameSession.world.toString() + '-' + this.gameSession.stage.toString();
@@ -440,7 +452,7 @@ class LevelScene extends Scene {
         phaser.add.bitmapText(152 * RESMULX, 22 * RESMULY, 'smb', stage_txt, 12 * RESMULX, this.hudGroup);
         
         // HUD / TIME
-        phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX, this.hudGroup);
+        this.hudTime = phaser.add.bitmapText(200 * RESMULX, 14 * RESMULY, 'smb', 'TIME', 12 * RESMULX, this.hudGroup);
         
         // LOAD LEVEL
         this.tilemap = phaser.add.tilemap('level11');
@@ -503,7 +515,7 @@ class LevelScene extends Scene {
         player_spawn.tx = Math.floor(player_spawn.x / 16.0);
         player_spawn.ty = Math.floor(player_spawn.y / 16.0);
         
-        this.mario = new Mario(player_spawn, this.tilemap);
+        this.mario = new Mario(player_spawn, this, this.tilemap);
         
         // CAMERA
         phaser.camera.follow(this.mario.sprite);
@@ -541,6 +553,16 @@ class LevelScene extends Scene {
             this.mario.debugRender();
         }
     }
+    
+    public get HUDCoins(): number { return this.gameSession.player.coins; }
+    public set HUDCoins(_coins:number) { 
+        this.gameSession.player.coins = _coins;
+        let coins_txt:string = _coins.toString();
+        if(coins_txt.length < 2) {
+            coins_txt = '0' + coins_txt;
+        }
+        this.hudCoins.text = "x" + coins_txt;
+    }
 };
 
 //----------------- MARIO
@@ -554,25 +576,27 @@ const MARIO_BRAKING_ACCEL_MUL   = 3;
 const MARIO_JUMP_FORCE_DURATION = 0.33;
 
 class Mario {
-    name: string;
-    startObject: any; // x, y: player spawn coords.
-    tilemap: Phaser.Tilemap;
-    sprite: Phaser.Sprite;
-    horizMovement: number;
-    jumpInput: boolean;
-    jumpInputHit: boolean;
-    jumpInputHeld: boolean;
-    jumpTime: number;
-    actionInput: boolean;
-    isJumping: boolean;
-    isFalling: boolean;
-    hspeed: number;     // Horizontal linear speed
-    vspeed: number;     // Vertical linear speed
-    fspeed: number;     // Animation frames speed
+    name:               string;
+    startObject:        any; // x, y: player spawn coords.
+    level:              LevelScene;
+    tilemap:            Phaser.Tilemap;
+    sprite:             Phaser.Sprite;
+    horizMovement:      number;
+    jumpInput:          boolean;
+    jumpInputHit:       boolean;
+    jumpInputHeld:      boolean;
+    jumpTime:           number;
+    actionInput:        boolean;
+    isJumping:          boolean;
+    isFalling:          boolean;
+    hspeed:             number;     // Horizontal linear speed
+    vspeed:             number;     // Vertical linear speed
+    fspeed:             number;     // Animation frames speed
     
-    constructor(start_object, _tilemap) {
+    constructor(start_object, _level, _tilemap) {
         this.name = "mario";
         this.startObject = start_object;
+        this.level = _level;
         this.tilemap = _tilemap;
         // Sprite and Animations
         this.sprite = phaser.add.sprite(this.startObject.x * RESMULX + 16, this.startObject.y * RESMULY + 32, 'smb1atlas');
@@ -788,6 +812,11 @@ class Mario {
             debugBar.text += (this.sprite.body.blocked.up? "Yes " : "No ");
             debugBar.text += (this.sprite.body.blocked.down? "Yes " : "No ");
         }
+    }
+    
+    public giveCoin():void {
+        this.level.HUDCoins += 1;
+        sfx.coin.play();
     }
     
     public debugRender():void {
