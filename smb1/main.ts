@@ -358,8 +358,12 @@ class ActiveBlock {
     
     public hit(by_actor:any):void {
         if(this.tile.index === BLOCK_ITEM) {
-            this.sprite.animations.play('solid');
-            this._bumpBlock();
+            if(this.sprite.animations.currentAnim.name !== 'solid') {
+                this.sprite.animations.play('solid');
+                this._bumpBlock();
+            } else {
+                // Do nothing, block solid
+            }
         } else if(this.tile.index === BLOCK_BRICK) {
             this._bumpBlock();
         }
@@ -658,7 +662,7 @@ class Mario {
                     }
                 }
                 if(is_ublocked) {
-                    sfx.bump.play();
+                    let b_sfx_bump = true;
                     this.sprite.body.velocity.y = 0.0;
                     // Player hit something above
                     // - Convert player position to tile coords using mid-point
@@ -681,11 +685,14 @@ class Mario {
                             }
                         } else {
                             console.log("We have nothing above. Need motion correction!");
+                            b_sfx_bump = false;
                         }
                     } else {
                         console.log("Ty = 0 and it detected hitting. This shouldn't happen once I unblock the world top edge.");
                     }
-                    
+                    if(b_sfx_bump) {
+                        sfx.bump.play();
+                    }
                 }
                 if(this.sprite.body.velocity.y >= 0.0) {
                     this.isFalling = true;
