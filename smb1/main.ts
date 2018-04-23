@@ -330,6 +330,7 @@ const LAYER_BG                  = "BG";
 const LAYER_ITEMS               = "ITEMS";
 const BLOCK_ITEM                = 8;
 const BLOCK_BRICK               = 54;
+const BLOCK_HIDDEN              = 36;
 const ITEM_GROWTH               = 66;
 const ITEM_LIFE                 = 67;
 const ITEM_FLOWER               = 68;
@@ -835,7 +836,7 @@ class Mario {
         }
         
         if(debugBar) {
-            debugBar.text = "Blocked  left right up down: ";
+            debugBar.text = "Blocked-left right up down: ";
             debugBar.text += (this.sprite.body.blocked.left? "Yes " : "No ");
             debugBar.text += (this.sprite.body.blocked.right? "Yes " : "No ");
             debugBar.text += (this.sprite.body.blocked.up? "Yes " : "No ");
